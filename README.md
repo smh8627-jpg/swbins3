@@ -24,6 +24,17 @@ powershell -ExecutionPolicy Bypass -File rec.ps1 -Action stop
 powershell -ExecutionPolicy Bypass -File rec.ps1 -Action audio -Seconds 60
 ```
 
+## 웹 UI
+
+```powershell
+powershell -ExecutionPolicy Bypass -File serve.ps1          # 기본 포트 8610
+powershell -ExecutionPolicy Bypass -File serve.ps1 -Port 8700
+```
+
+`http://127.0.0.1:8610/` 에서 열린 창을 골라 바로 시작·중지하고, 결과물을 그 자리에서 내려받습니다.
+시작·중지는 **이 PC에서 연 화면**에서만 되고(캡처가 이 PC 화면을 대상으로 하기 때문), 다른 PC에서 열면 상태·결과물만 봅니다.
+`web/` 아래 4개 파일(`router.php`·`index.php`·`action.php`·`file.php`)이 전부고, 프레임워크 없이 PHP 내장 서버로 뜹니다.
+
 `-Target` 은 네 가지로 줍니다.
 
 | 값 | 의미 |
@@ -71,6 +82,8 @@ rec.ps1 -Action shrink -File out\demo.gif -MaxMB 5
 | `list-windows.ps1` | 열린 창 목록 |
 | `rec-state.json` · `rec.log` | 현재 상태 · 기록 |
 | `out\` | 결과물 |
+| `serve.ps1` | 웹 UI 실행 (`php -S` 로 `web\router.php` 를 띄움) |
+| `web\` | 웹 UI (라우터·페이지·시작-중지 처리·파일 다운로드) |
 
 ## 손볼 때 주의
 
