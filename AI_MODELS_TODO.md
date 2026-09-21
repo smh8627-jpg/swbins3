@@ -4,13 +4,30 @@
 
 IT에 예외 요청할 때 도메인: `huggingface.co` + `*.cdn-lfs*.huggingface.co` (또는 `*.huggingface.co` 전체), `ollama.com`, `registry.ollama.ai`, `openaipublic.azureedge.net`(3D 생성용, 7번 참고)
 
+## 다른 PC에 동일하게 세팅하기
+
+이 문서의 모든 "넣을 위치"는 `C:\swbins3\...` 절대 경로 기준입니다. 다른 PC에서도 경로를 통일하려면:
+
+1. 저장소를 반드시 `C:\swbins3` 경로에 클론한다 (다른 드라이브·폴더명 사용 금지).
+   ```powershell
+   git clone https://github.com/smh8627-jpg/swbins3.git C:\swbins3
+   ```
+2. 아래 1~8번 파일들을 각 "넣을 위치"에 그대로 복사한다 (모델 파일은 `.gitignore`에 있어서 git에는 포함되지 않으므로 별도 복사/다운로드 필요).
+3. 4·5번(Ollama)은 파일만 복사해서는 안 되고, PC마다 아래처럼 등록 명령을 한 번씩 실행해야 한다:
+   ```powershell
+   ollama create qwen2.5:7b -f - <<< "FROM C:\swbins3\ollama\models\qwen\Qwen2.5-7B-Instruct-Q4_K_M.gguf"
+   ollama create qwen2.5-coder:7b -f - <<< "FROM C:\swbins3\ollama\models\qwen\qwen2.5-coder-7b-instruct-q4_k_m.gguf"
+   ```
+   (PowerShell에서는 `Set-Content Modelfile "FROM C:\swbins3\ollama\models\qwen\...\ .gguf"` 후 `ollama create <이름> -f Modelfile`)
+4. `ollama list`로 두 모델이 뜨는지 확인.
+
 ## 1. 이미지 생성용 체크포인트 (필수)
 
 - 파일: `v1-5-pruned-emaonly.safetensors`
 - 용량: 약 4GB
 - 받는 곳: https://huggingface.co/stable-diffusion-v1-5/stable-diffusion-v1-5/resolve/main/v1-5-pruned-emaonly.safetensors
 - 넣을 위치: `C:\swbins3\sd-webui\models\Stable-diffusion\`
-- 상태: ❌ 미다운로드 (방화벽 차단)
+- 상태: ✅ 다운로드 완료 (이 PC 기준)
 
 ## 2. 동영상 생성용 모션 모듈 (필수)
 
@@ -18,7 +35,7 @@ IT에 예외 요청할 때 도메인: `huggingface.co` + `*.cdn-lfs*.huggingface
 - 용량: 약 909MB
 - 받는 곳: https://huggingface.co/conrevo/AnimateDiff-A1111/resolve/main/motion_module/mm_sd15_v2.safetensors
 - 넣을 위치: `C:\swbins3\sd-webui\extensions\sd-webui-animatediff\model\`
-- 상태: ❌ 미다운로드 (방화벽 차단)
+- 상태: ✅ 다운로드 완료 (이 PC 기준)
 
 ## 3. 음악 생성 모델 (자동 다운로드, 수동 작업도 가능)
 
@@ -29,7 +46,7 @@ IT에 예외 요청할 때 도메인: `huggingface.co` + `*.cdn-lfs*.huggingface
   (핵심 가중치: https://huggingface.co/facebook/musicgen-small/resolve/main/model.safetensors, 그 외 config.json/generation_config.json/preprocessor_config.json/tokenizer 관련 파일들도 같은 폴더에서 전부 받기)
 - 넣을 위치: `C:\swbins3\music-gen\models\musicgen-small\` (폴더가 없으면 새로 만들고 받은 파일들을 그대로 복사)
 - ✅ 코드 반영 완료: `music-gen/server.py`가 이 폴더가 존재하면 자동으로 로컬 모델을 쓰고, 없으면 기존처럼 `facebook/musicgen-small`을 huggingface.co에서 자동 다운로드하도록 수정해둠 (인터넷 연결 불필요)
-- 상태: ⏳ 서버 코드 준비 중, 방화벽 풀리면 최초 실행 시 자동 다운로드됨
+- 상태: ✅ 다운로드 완료 (이 PC 기준)
 
 ## 4. 문서 생성 모델 (Ollama, 명령어로 자동 다운로드)
 
@@ -42,7 +59,7 @@ IT에 예외 요청할 때 도메인: `huggingface.co` + `*.cdn-lfs*.huggingface
   echo FROM ./Qwen2.5-7B-Instruct-Q4_K_M.gguf > Modelfile
   ollama create qwen2.5:7b -f Modelfile
   ```
-- 상태: ❌ 미다운로드 (방화벽 차단 — huggingface.co와 같은 "전문/특화 AI 기타" 정책)
+- 상태: ✅ 다운로드 + Ollama 등록 완료 (이 PC 기준)
 
 ## 5. 코드/앱 생성 모델 (Ollama, 명령어로 자동 다운로드)
 
@@ -51,7 +68,7 @@ IT에 예외 요청할 때 도메인: `huggingface.co` + `*.cdn-lfs*.huggingface
 - 받는 곳(자동): `registry.ollama.ai` — 방화벽 풀리면 `ollama pull qwen2.5-coder:7b`
 - 받는 곳(수동, GGUF 직접 다운로드): https://huggingface.co/Qwen/Qwen2.5-Coder-7B-Instruct-GGUF/resolve/main/qwen2.5-coder-7b-instruct-q4_k_m.gguf (4.68GB, huggingface.co 도메인)
   → 받은 뒤 4번과 동일하게 `Modelfile` + `ollama create qwen2.5-coder:7b -f Modelfile`
-- 상태: ❌ 미다운로드 (방화벽 차단)
+- 상태: ✅ 다운로드 + Ollama 등록 완료 (이 PC 기준)
 
 ## 6. 음성 생성 모델 (자동 다운로드, 수동 작업도 가능)
 
@@ -67,7 +84,7 @@ IT에 예외 요청할 때 도메인: `huggingface.co` + `*.cdn-lfs*.huggingface
 - 넣을 위치: `C:\swbins3\voice-gen\models\xtts_v2\` (폴더가 없으면 새로 만들고 위 5개 파일을 그대로 복사)
 - ✅ 코드 반영 완료: `voice-gen/server.py`가 이 폴더에 `config.json`이 있으면 `model_path`/`config_path`로 로컬 모델을 직접 불러오고(캐시 폴더명 신경 쓸 필요 없음), 없으면 기존처럼 자동 다운로드하도록 수정해둠
 - ⚠️ 라이선스: XTTS-v2는 비상업적 용도(CPML 라이선스)입니다. `voice-gen/run.bat`에서 `COQUI_TOS_AGREED=1`로 동의를 자동 처리해뒀습니다 — 사내 업무용으로만 쓰고 상업적 배포는 하지 마세요.
-- 상태: ❌ 미다운로드 (방화벽 차단)
+- 상태: ✅ 다운로드 완료 (이 PC 기준)
 
 ## 7. 3D 에셋 생성 모델 (자동 다운로드, 수동 작업도 가능)
 
@@ -81,7 +98,7 @@ IT에 예외 요청할 때 도메인: `huggingface.co` + `*.cdn-lfs*.huggingface
   받은 파일은 `%USERPROFILE%\.cache\shap_e\` 폴더에 그대로 넣으면 됨(파일명 그대로 유지)
 - IT에 추가로 예외 요청할 도메인: `openaipublic.azureedge.net`
 - 확인: `curl.exe -I https://openaipublic.azureedge.net` 이 막혀 있으면(현재 상태) `3d-gen` 탭에서 "모델 로드 실패" 에러가 남
-- 상태: ❌ 미다운로드 (방화벽 차단, huggingface.co와 별개 도메인)
+- 상태: ✅ 다운로드 완료 (이 PC 기준)
 
 ## 8. 웹툰/만화·애니메 스타일 체크포인트 (선택, 품질 개선용)
 
@@ -97,7 +114,7 @@ IT에 예외 요청할 때 도메인: `huggingface.co` + `*.cdn-lfs*.huggingface
 - 넣을 위치: `C:\swbins3\sd-webui\models\Stable-diffusion\`
 - 적용 방법: 받은 뒤 sd-webui 웹 UI(http://127.0.0.1:7860) 상단 체크포인트 드롭다운에서 선택하거나,
   `curl.exe -X POST -H "Content-Type: application/json" -d "{\"sd_model_checkpoint\":\"Counterfeit-V3.0_fp16.safetensors\"}" http://127.0.0.1:7860/sdapi/v1/options` 로 API 전환
-- 상태: ❌ 미다운로드 (방화벽 차단, huggingface.co — 1번과 같은 도메인)
+- 상태: ✅ 다운로드 완료 (이 PC 기준, Counterfeit-V3.0·rev_1.2.2 둘 다)
 
 ## 확인 방법
 
