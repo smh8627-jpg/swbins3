@@ -2,7 +2,7 @@
 
 회사 방화벽이 `huggingface.co` (전문/특화 AI 기타 정책)를 막고 있어서, 아래 파일들은 IT 예외 요청 후 다운로드하거나 다른 네트워크에서 받아서 옮겨야 합니다.
 
-IT에 예외 요청할 때 도메인: `huggingface.co` + `*.cdn-lfs*.huggingface.co` (또는 `*.huggingface.co` 전체), `ollama.com`, `registry.ollama.ai`
+IT에 예외 요청할 때 도메인: `huggingface.co` + `*.cdn-lfs*.huggingface.co` (또는 `*.huggingface.co` 전체), `ollama.com`, `registry.ollama.ai`, `openaipublic.azureedge.net`(3D 생성용, 7번 참고)
 
 ## 1. 이미지 생성용 체크포인트 (필수)
 
@@ -50,6 +50,15 @@ IT에 예외 요청할 때 도메인: `huggingface.co` + `*.cdn-lfs*.huggingface
 - 받는 곳: huggingface.co (자동)
 - ⚠️ 라이선스: XTTS-v2는 비상업적 용도(CPML 라이선스)입니다. `voice-gen/run.bat`에서 `COQUI_TOS_AGREED=1`로 동의를 자동 처리해뒀습니다 — 사내 업무용으로만 쓰고 상업적 배포는 하지 마세요.
 - 상태: ❌ 미다운로드 (방화벽 차단)
+
+## 7. 3D 에셋 생성 모델 (자동 다운로드, 수동 작업 불필요)
+
+- 모델: `transmitter`, `text300M`(텍스트→3D), `image300M`(이미지→3D) — OpenAI Shap-E가 최초 실행 시 자동으로 받음
+- 용량: 세 개 합쳐 약 2~3GB
+- 받는 곳: `openaipublic.azureedge.net` (자동, 캐시 위치 `%USERPROFILE%\.cache\`) — huggingface.co와는 다른 도메인이라 **별도로 방화벽 예외 필요**
+- IT에 추가로 예외 요청할 도메인: `openaipublic.azureedge.net`
+- 확인: `curl.exe -I https://openaipublic.azureedge.net` 이 막혀 있으면(현재 상태) `3d-gen` 탭에서 "모델 로드 실패" 에러가 남
+- 상태: ❌ 미다운로드 (방화벽 차단, huggingface.co와 별개 도메인)
 
 ## 확인 방법
 

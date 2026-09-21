@@ -16,7 +16,7 @@ use Psr\Http\Message\ServerRequestInterface as Request;
 $app = AppFactory::create();
 
 $app->get('/', function (Request $request, Response $response) {
-    $html = aihubRenderHome(aihubLoadTools(), aihubLoadTips());
+    $html = aihubRenderHome(aihubLoadTips());
     $response->getBody()->write($html);
     return $response->withHeader('Content-Type', 'text/html; charset=utf-8');
 });
@@ -42,6 +42,41 @@ $app->post('/generate/music', function (Request $request, Response $response) {
     return $response->withHeader('Content-Type', 'application/json; charset=utf-8');
 });
 
+$app->post('/generate/webtoon', function (Request $request, Response $response) {
+    $body = json_decode((string)$request->getBody(), true);
+    $result = aihubGenerateWebtoon(is_array($body) ? $body : []);
+    $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+    return $response->withHeader('Content-Type', 'application/json; charset=utf-8');
+});
+
+$app->post('/generate/design', function (Request $request, Response $response) {
+    $body = json_decode((string)$request->getBody(), true);
+    $result = aihubGenerateDesign(is_array($body) ? $body : []);
+    $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+    return $response->withHeader('Content-Type', 'application/json; charset=utf-8');
+});
+
+$app->post('/generate/asset2d', function (Request $request, Response $response) {
+    $body = json_decode((string)$request->getBody(), true);
+    $result = aihubGenerateAsset2D(is_array($body) ? $body : []);
+    $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+    return $response->withHeader('Content-Type', 'application/json; charset=utf-8');
+});
+
+$app->post('/generate/social', function (Request $request, Response $response) {
+    $body = json_decode((string)$request->getBody(), true);
+    $result = aihubGenerateSocial(is_array($body) ? $body : []);
+    $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+    return $response->withHeader('Content-Type', 'application/json; charset=utf-8');
+});
+
+$app->post('/generate/ui', function (Request $request, Response $response) {
+    $body = json_decode((string)$request->getBody(), true);
+    $result = aihubGenerateUI(is_array($body) ? $body : []);
+    $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+    return $response->withHeader('Content-Type', 'application/json; charset=utf-8');
+});
+
 $app->post('/generate/document', function (Request $request, Response $response) {
     $body = json_decode((string)$request->getBody(), true);
     $result = aihubGenerateDocument(is_array($body) ? $body : []);
@@ -59,6 +94,13 @@ $app->post('/generate/code', function (Request $request, Response $response) {
 $app->post('/generate/voice', function (Request $request, Response $response) {
     $body = json_decode((string)$request->getBody(), true);
     $result = aihubGenerateVoice(is_array($body) ? $body : []);
+    $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+    return $response->withHeader('Content-Type', 'application/json; charset=utf-8');
+});
+
+$app->post('/generate/3d', function (Request $request, Response $response) {
+    $body = json_decode((string)$request->getBody(), true);
+    $result = aihubGenerate3D(is_array($body) ? $body : []);
     $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
     return $response->withHeader('Content-Type', 'application/json; charset=utf-8');
 });

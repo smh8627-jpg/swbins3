@@ -9,3 +9,7 @@ voice-gen/venv/
 voice-gen/__pycache__/
 voice-gen/reference.wav
 voice-gen/_last_output.wav
+3d-gen/venv/
+3d-gen/__pycache__/
+aider/venv/
+aider/__pycache__/

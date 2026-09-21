@@ -109,24 +109,64 @@ venv\Scripts\python.exe -m pip install "transformers>=4.57,<5"
 
 모델(`coqui/XTTS-v2`, 약 1.8GB)은 첫 요청 때 자동 다운로드되고, 목소리 샘플(5~10초 wav)은 웹 UI에서 처음 한 번 업로드하면 됩니다.
 
-## 4. Ollama (문서·코드)
+## 4. 3d-gen (3D 에셋)
+
+```powershell
+cd C:\swbins3
+mkdir 3d-gen
+cd 3d-gen
+python -m venv venv
+venv\Scripts\python.exe -m pip install --upgrade pip
+venv\Scripts\python.exe -m pip install flask trimesh scikit-image scipy matplotlib blobfile humanize fire tqdm Pillow requests pyyaml "clip @ git+https://github.com/openai/CLIP.git" "shap-e @ git+https://github.com/openai/shap-e.git"
+venv\Scripts\python.exe -m pip install "torch==2.5.1" --index-url https://download.pytorch.org/whl/cu121
+venv\Scripts\python.exe -m pip install "torchvision==0.20.1" --index-url https://download.pytorch.org/whl/cu121
+```
+
+⚠️ `shap-e`/`clip`을 먼저 설치하면 의존성 해석 과정에서 torch가 CPU 전용 최신 버전으로 덮어써집니다.
+**반드시 torch·torchvision을 shap-e보다 나중에, cu121 인덱스로 다시 설치**해야 GPU가 잡힙니다(`torch.cuda.is_available()`로 확인).
+
+`server.py`, `run.bat`은 git에 이미 있습니다(clone하면 옴). 모델(`transmitter`, `text300M`, `image300M`)은 첫 요청 때
+`openaipublic.azureedge.net`에서 자동 다운로드됩니다 — huggingface.co와 별개 도메인이라 방화벽 예외를 따로 받아야
+할 수 있습니다(`AI_MODELS_TODO.md` 7번 참고).
+
+## 5. Ollama (문서·코드, 한국어→영어 프롬프트 번역)
 
 ```powershell
 ollama pull qwen2.5:7b
 ollama pull qwen2.5-coder:7b
 ```
 
-## 5. ai-tools-hub (웹 UI)
+`qwen2.5:7b`는 문서 생성뿐 아니라 이미지·동영상·웹툰·3D 탭의 한국어 프롬프트를 영어로 번역하는 데도 쓰입니다.
+
+## 6. aider (로컬 코딩 에이전트, 선택)
+
+파일을 직접 읽고 쓰고 명령을 실행하며 반복 수정하는 "클로드 코드 같은" 로컬 에이전트가 필요하면 설치합니다
+(웹 UI의 "코드/앱" 탭은 텍스트 한 덩어리만 주는 단발성 생성이라 이거랑 다릅니다).
+
+```powershell
+cd C:\swbins3
+mkdir aider
+cd aider
+python -m venv venv
+venv\Scripts\python.exe -m pip install --upgrade pip
+venv\Scripts\python.exe -m pip install aider-chat
+```
+
+`dev-agent.bat`, `README.md`는 git에 이미 있습니다(clone하면 옴). 5번의 `qwen2.5-coder:7b`를 그대로 재사용하므로
+추가로 받을 모델은 없습니다. 사용법은 `aider/README.md` 참고 — 작업할 프로젝트 폴더에서 `dev-agent.bat`을 직접 실행합니다
+(웹 UI에 연동하지 않음 — LLM이 파일/명령을 다루는 걸 브라우저 버튼으로 트리거하는 건 안전하지 않아서 터미널 전용으로 둠).
+
+## 7. ai-tools-hub (웹 UI)
 
 ```powershell
 cd C:\swbins3\ai-tools-hub
 php composer.phar install
 ```
 
-## 6. 한 번에 켜기
+## 8. 한 번에 켜기
 
 ```powershell
 C:\swbins3\start-all.bat
 ```
 
-`http://127.0.0.1:8611/` → "서버 상태" 탭에서 4개 다 켜졌는지 확인.
+`http://127.0.0.1:8611/` → "서버 상태" 탭에서 5개 다 켜졌는지 확인.

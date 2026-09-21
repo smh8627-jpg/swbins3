@@ -5,6 +5,55 @@
  */
 
 define('AIHUB_SD_API_BASE', getenv('SD_API_URL') ?: 'http://127.0.0.1:7860');
+define('AIHUB_OLLAMA_API_BASE', getenv('OLLAMA_API_URL') ?: 'http://127.0.0.1:11434');
+define('AIHUB_TRANSLATE_MODEL', getenv('AIHUB_TRANSLATE_MODEL') ?: 'qwen2.5:7b');
+
+function aihubContainsKorean(string $text): bool
+{
+    return (bool)preg_match('/[\x{AC00}-\x{D7A3}]/u', $text);
+}
+
+/**
+ * 한국어가 섞인 프롬프트를 로컬 Ollama로 SD/Shap-E용 영어 키워드 프롬프트로 번역.
+ * 번역 서버에 문제가 있으면 원문을 그대로 반환한다(생성 자체가 막히지 않도록).
+ */
+function aihubTranslateToEnglishPrompt(string $text): string
+{
+    $text = trim($text);
+    if ($text === '' || !aihubContainsKorean($text)) {
+        return $text;
+    }
+
+    $payload = [
+        'model' => AIHUB_TRANSLATE_MODEL,
+        'prompt' => $text,
+        'system' => '너는 이미지·3D 생성 AI용 프롬프트 번역기다. 입력된 한국어 문장을 Stable Diffusion 프롬프트로 쓰기 좋은 ' .
+            '간결한 영어 키워드 나열로 번역한다. 설명·따옴표·번역이라는 말 없이 번역 결과 한 줄만 출력한다.',
+        'stream' => false,
+    ];
+
+    $ch = curl_init(AIHUB_OLLAMA_API_BASE . '/api/generate');
+    curl_setopt_array($ch, [
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_UNICODE),
+        CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 30,
+        CURLOPT_CONNECTTIMEOUT => 5,
+    ]);
+    $raw = curl_exec($ch);
+    $errno = curl_errno($ch);
+    curl_close($ch);
+
+    if ($errno !== 0) {
+        return $text;
+    }
+
+    $data = json_decode((string)$raw, true);
+    $translated = is_array($data) ? trim((string)($data['response'] ?? '')) : '';
+
+    return $translated !== '' ? $translated : $text;
+}
 
 /**
  * @return array{ok: bool, images?: string[], error?: string}
@@ -12,8 +61,8 @@ define('AIHUB_SD_API_BASE', getenv('SD_API_URL') ?: 'http://127.0.0.1:7860');
 function aihubGenerateImage(array $params): array
 {
     $payload = [
-        'prompt' => (string)($params['prompt'] ?? ''),
-        'negative_prompt' => (string)($params['negative_prompt'] ?? ''),
+        'prompt' => aihubTranslateToEnglishPrompt((string)($params['prompt'] ?? '')),
+        'negative_prompt' => aihubTranslateToEnglishPrompt((string)($params['negative_prompt'] ?? '')),
         'width' => (int)($params['width'] ?? 512),
         'height' => (int)($params['height'] ?? 512),
         'steps' => (int)($params['steps'] ?? 20),
@@ -27,7 +76,15 @@ function aihubGenerateImage(array $params): array
         return ['ok' => false, 'error' => '프롬프트를 입력해 주세요.'];
     }
 
-    $ch = curl_init(AIHUB_SD_API_BASE . '/sdapi/v1/txt2img');
+    $refImage = trim((string)($params['init_image'] ?? ''));
+    $endpoint = '/sdapi/v1/txt2img';
+    if ($refImage !== '') {
+        $payload['init_images'] = [$refImage];
+        $payload['denoising_strength'] = (float)($params['denoising_strength'] ?? 0.6);
+        $endpoint = '/sdapi/v1/img2img';
+    }
+
+    $ch = curl_init(AIHUB_SD_API_BASE . $endpoint);
     curl_setopt_array($ch, [
         CURLOPT_POST => true,
         CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_UNICODE),
@@ -68,7 +125,7 @@ define('AIHUB_MOTION_MODULE', getenv('AIHUB_MOTION_MODULE') ?: 'mm_sd_v15_v2.saf
  */
 function aihubGenerateVideo(array $params): array
 {
-    $prompt = (string)($params['prompt'] ?? '');
+    $prompt = trim((string)($params['prompt'] ?? ''));
     if ($prompt === '') {
         return ['ok' => false, 'error' => '프롬프트를 입력해 주세요.'];
     }
@@ -76,8 +133,8 @@ function aihubGenerateVideo(array $params): array
     $videoLength = max(8, min(32, (int)($params['video_length'] ?? 16)));
 
     $payload = [
-        'prompt' => $prompt,
-        'negative_prompt' => (string)($params['negative_prompt'] ?? ''),
+        'prompt' => aihubTranslateToEnglishPrompt($prompt),
+        'negative_prompt' => aihubTranslateToEnglishPrompt((string)($params['negative_prompt'] ?? '')),
         'width' => (int)($params['width'] ?? 512),
         'height' => (int)($params['height'] ?? 512),
         'steps' => (int)($params['steps'] ?? 20),
@@ -103,7 +160,15 @@ function aihubGenerateVideo(array $params): array
         ],
     ];
 
-    $ch = curl_init(AIHUB_SD_API_BASE . '/sdapi/v1/txt2img');
+    $refImage = trim((string)($params['init_image'] ?? ''));
+    $endpoint = '/sdapi/v1/txt2img';
+    if ($refImage !== '') {
+        $payload['init_images'] = [$refImage];
+        $payload['denoising_strength'] = (float)($params['denoising_strength'] ?? 0.6);
+        $endpoint = '/sdapi/v1/img2img';
+    }
+
+    $ch = curl_init(AIHUB_SD_API_BASE . $endpoint);
     curl_setopt_array($ch, [
         CURLOPT_POST => true,
         CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_UNICODE),
@@ -154,7 +219,7 @@ function aihubGenerateMusic(array $params): array
     $ch = curl_init(AIHUB_MUSIC_API_BASE . '/generate');
     curl_setopt_array($ch, [
         CURLOPT_POST => true,
-        CURLOPT_POSTFIELDS => json_encode(['prompt' => $prompt, 'duration' => $duration], JSON_UNESCAPED_UNICODE),
+        CURLOPT_POSTFIELDS => json_encode(['prompt' => aihubTranslateToEnglishPrompt($prompt), 'duration' => $duration], JSON_UNESCAPED_UNICODE),
         CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_TIMEOUT => 300,
@@ -180,11 +245,161 @@ function aihubGenerateMusic(array $params): array
     return ['ok' => true, 'audio' => $data['audio']];
 }
 
-define('AIHUB_OLLAMA_API_BASE', getenv('OLLAMA_API_URL') ?: 'http://127.0.0.1:11434');
-define('AIHUB_DOCUMENT_MODEL', getenv('AIHUB_DOCUMENT_MODEL') ?: 'qwen2.5:7b');
+define('AIHUB_WEBTOON_STYLE', 'webtoon style, clean lineart, cel shading, vibrant flat colors, manhwa panel, ');
 
 /**
- * 로컬 Ollama로 문서(글) 생성.
+ * 이미지 생성과 같은 sd-webui 백엔드에 웹툰/만화 스타일 프리셋을 얹어서 호출.
+ * @return array{ok: bool, images?: string[], error?: string}
+ */
+function aihubGenerateWebtoon(array $params): array
+{
+    $prompt = trim((string)($params['prompt'] ?? ''));
+    if ($prompt === '') {
+        return ['ok' => false, 'error' => '프롬프트를 입력해 주세요.'];
+    }
+
+    return aihubGenerateImage([
+        'prompt' => AIHUB_WEBTOON_STYLE . aihubTranslateToEnglishPrompt($prompt),
+        'negative_prompt' => trim('photo, realistic, 3d render, ' . aihubTranslateToEnglishPrompt((string)($params['negative_prompt'] ?? ''))),
+        'width' => 512,
+        'height' => 768,
+        'steps' => (int)($params['steps'] ?? 20),
+        'init_image' => (string)($params['init_image'] ?? ''),
+        'denoising_strength' => (float)($params['denoising_strength'] ?? 0.6),
+    ]);
+}
+
+define('AIHUB_DESIGN_STYLE', 'flat vector design, clean modern graphic design, minimal, professional branding, ');
+
+/**
+ * 이미지 생성과 같은 sd-webui 백엔드에 그래픽 디자인(포스터·로고·배너 등) 프리셋을 얹어서 호출.
+ * @return array{ok: bool, images?: string[], error?: string}
+ */
+function aihubGenerateDesign(array $params): array
+{
+    $prompt = trim((string)($params['prompt'] ?? ''));
+    if ($prompt === '') {
+        return ['ok' => false, 'error' => '프롬프트를 입력해 주세요.'];
+    }
+
+    return aihubGenerateImage([
+        'prompt' => AIHUB_DESIGN_STYLE . aihubTranslateToEnglishPrompt($prompt),
+        'negative_prompt' => trim('photo, realistic, blurry, watermark, ' . aihubTranslateToEnglishPrompt((string)($params['negative_prompt'] ?? ''))),
+        'width' => (int)($params['width'] ?? 512),
+        'height' => (int)($params['height'] ?? 512),
+        'steps' => (int)($params['steps'] ?? 20),
+        'init_image' => (string)($params['init_image'] ?? ''),
+        'denoising_strength' => (float)($params['denoising_strength'] ?? 0.6),
+    ]);
+}
+
+define('AIHUB_ASSET2D_STYLE', 'single 2D game asset icon, sprite, clean vector illustration, centered composition, plain flat background, no shadow, ');
+
+/**
+ * 이미지 생성과 같은 sd-webui 백엔드에 2D 게임 에셋(아이템·아이콘·스프라이트) 프리셋을 얹어서 호출.
+ * 배경 투명화는 별도 후처리가 필요합니다(플랫 단색 배경으로 생성해 잘라내기 쉽게만 합니다).
+ * @return array{ok: bool, images?: string[], error?: string}
+ */
+function aihubGenerateAsset2D(array $params): array
+{
+    $prompt = trim((string)($params['prompt'] ?? ''));
+    if ($prompt === '') {
+        return ['ok' => false, 'error' => '프롬프트를 입력해 주세요.'];
+    }
+
+    return aihubGenerateImage([
+        'prompt' => AIHUB_ASSET2D_STYLE . aihubTranslateToEnglishPrompt($prompt),
+        'negative_prompt' => trim('photo, realistic, text, watermark, blurry, cluttered background, multiple objects, ' . aihubTranslateToEnglishPrompt((string)($params['negative_prompt'] ?? ''))),
+        'width' => 512,
+        'height' => 512,
+        'steps' => (int)($params['steps'] ?? 20),
+        'init_image' => (string)($params['init_image'] ?? ''),
+        'denoising_strength' => (float)($params['denoising_strength'] ?? 0.6),
+    ]);
+}
+
+define('AIHUB_DOCUMENT_MODEL', getenv('AIHUB_DOCUMENT_MODEL') ?: 'qwen2.5:7b');
+define('AIHUB_SEARCH_ENDPOINT', getenv('AIHUB_SEARCH_ENDPOINT') ?: 'https://html.duckduckgo.com/html/');
+
+/** 첨부 텍스트 파일 내용을 프롬프트 앞에 참고자료로 붙인다(너무 길면 일부만 사용). */
+function aihubWithAttachment(string $prompt, string $attachment): string
+{
+    $attachment = trim($attachment);
+    if ($attachment === '') {
+        return $prompt;
+    }
+    if (mb_strlen($attachment) > 8000) {
+        $attachment = mb_substr($attachment, 0, 8000) . "\n…(이하 생략)";
+    }
+    return "다음은 참고 자료다:\n\n{$attachment}\n\n---\n\n위 자료를 참고해서 아래 요청에 답해줘:\n{$prompt}";
+}
+
+/**
+ * 무료 웹 검색(DuckDuckGo HTML, API 키 불필요). 상위 N개 결과의 제목+요약+링크만 반환.
+ * 검색 엔진 도메인이 방화벽에 막혀 있으면(회사 네트워크 등) 연결 실패로 처리된다.
+ * @return array{ok: bool, results?: array<int, array{title: string, snippet: string, url: string}>, error?: string}
+ */
+function aihubWebSearch(string $query, int $limit = 5): array
+{
+    $query = trim($query);
+    if ($query === '') {
+        return ['ok' => false, 'error' => '검색어가 없습니다.'];
+    }
+
+    $ch = curl_init(AIHUB_SEARCH_ENDPOINT . '?' . http_build_query(['q' => $query]));
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 10,
+        CURLOPT_CONNECTTIMEOUT => 5,
+        CURLOPT_USERAGENT => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36',
+    ]);
+    $html = curl_exec($ch);
+    $errno = curl_errno($ch);
+    $error = curl_error($ch);
+    curl_close($ch);
+
+    if ($errno !== 0) {
+        return ['ok' => false, 'error' => "웹 검색 서비스에 연결할 수 없습니다: {$error}"];
+    }
+
+    $results = [];
+    if (preg_match_all(
+        '#<a[^>]*class="result__a"[^>]*href="([^"]+)"[^>]*>(.*?)</a>.*?<a[^>]*class="result__snippet"[^>]*>(.*?)</a>#is',
+        (string)$html,
+        $matches,
+        PREG_SET_ORDER
+    )) {
+        foreach ($matches as $m) {
+            if (count($results) >= $limit) {
+                break;
+            }
+            $results[] = [
+                'url' => html_entity_decode(strip_tags($m[1]), ENT_QUOTES),
+                'title' => trim(html_entity_decode(strip_tags($m[2]), ENT_QUOTES)),
+                'snippet' => trim(html_entity_decode(strip_tags($m[3]), ENT_QUOTES)),
+            ];
+        }
+    }
+
+    if (empty($results)) {
+        return ['ok' => false, 'error' => '검색 결과를 찾지 못했습니다(검색어를 바꿔보거나, 검색 사이트 구조가 바뀌었을 수 있습니다).'];
+    }
+
+    return ['ok' => true, 'results' => $results];
+}
+
+/** 검색 결과를 LLM 프롬프트에 넣기 좋은 텍스트 블록으로 정리. */
+function aihubFormatSearchResults(array $results): string
+{
+    $lines = [];
+    foreach ($results as $i => $r) {
+        $lines[] = ($i + 1) . ". {$r['title']}\n{$r['snippet']}\n출처: {$r['url']}";
+    }
+    return implode("\n\n", $lines);
+}
+
+/**
+ * 로컬 Ollama로 문서(글) 생성. web_search가 true면 프롬프트로 먼저 무료 웹 검색을 해서 결과를 참고자료로 넣는다.
  * @return array{ok: bool, text?: string, error?: string}
  */
 function aihubGenerateDocument(array $params): array
@@ -194,9 +409,21 @@ function aihubGenerateDocument(array $params): array
         return ['ok' => false, 'error' => '프롬프트를 입력해 주세요.'];
     }
 
+    $context = (string)($params['attachment'] ?? '');
+    if (!empty($params['web_search'])) {
+        $search = aihubWebSearch($prompt);
+        if ($search['ok']) {
+            $searchBlock = "[아래는 방금 웹 검색으로 찾은 최신 정보다. 답변에 반영하고, 필요하면 출처를 언급해라]\n\n" .
+                aihubFormatSearchResults($search['results']);
+            $context = trim($searchBlock . "\n\n" . $context);
+        } else {
+            $context = trim("[웹 검색을 시도했지만 실패했다: {$search['error']}. 알고 있는 지식으로만 답해라]\n\n" . $context);
+        }
+    }
+
     $payload = [
         'model' => AIHUB_DOCUMENT_MODEL,
-        'prompt' => $prompt,
+        'prompt' => aihubWithAttachment($prompt, $context),
         'stream' => false,
     ];
 
@@ -233,6 +460,66 @@ function aihubGenerateDocument(array $params): array
     return ['ok' => true, 'text' => (string)($data['response'] ?? '')];
 }
 
+define('AIHUB_SOCIAL_PROMPTS', [
+    'instagram' => '너는 SNS 마케터다. 인스타그램 게시물용 감성적인 캡션과 어울리는 해시태그 10개를 작성한다. 캡션과 해시태그만 출력한다.',
+    'tiktok' => '너는 숏폼 콘텐츠 작가다. 틱톡/릴스용 15~30초 분량 스크립트(훅-본문-CTA 구조)와 추천 해시태그 5개를 작성한다.',
+    'blog' => '너는 블로그 작가다. SEO를 고려한 블로그 포스트 초안을 소제목 구조로 작성한다(서론-본문 소제목 2~3개-결론).',
+    'cafe' => '너는 온라인 커뮤니티(네이버 카페 등) 운영자다. 친근한 말투의 카페 게시글 초안을 작성한다.',
+]);
+
+/**
+ * 로컬 Ollama로 SNS/블로그 콘텐츠 초안 생성(실제 게시·업로드는 하지 않음).
+ * @return array{ok: bool, text?: string, error?: string}
+ */
+function aihubGenerateSocial(array $params): array
+{
+    $prompt = trim((string)($params['prompt'] ?? ''));
+    if ($prompt === '') {
+        return ['ok' => false, 'error' => '프롬프트를 입력해 주세요.'];
+    }
+
+    $platform = (string)($params['platform'] ?? 'instagram');
+    $system = AIHUB_SOCIAL_PROMPTS[$platform] ?? AIHUB_SOCIAL_PROMPTS['instagram'];
+
+    $payload = [
+        'model' => AIHUB_DOCUMENT_MODEL,
+        'prompt' => aihubWithAttachment($prompt, (string)($params['attachment'] ?? '')),
+        'system' => $system,
+        'stream' => false,
+    ];
+
+    $ch = curl_init(AIHUB_OLLAMA_API_BASE . '/api/generate');
+    curl_setopt_array($ch, [
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_UNICODE),
+        CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 180,
+        CURLOPT_CONNECTTIMEOUT => 5,
+    ]);
+    $raw = curl_exec($ch);
+    $errno = curl_errno($ch);
+    $error = curl_error($ch);
+    $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($errno !== 0) {
+        return ['ok' => false, 'error' => "로컬 문서 생성 서버(Ollama)에 연결할 수 없습니다: {$error}"];
+    }
+
+    $data = json_decode((string)$raw, true);
+
+    if ($status !== 200 || !is_array($data)) {
+        $detail = is_array($data) ? ($data['error'] ?? '') : substr((string)$raw, 0, 200);
+        return ['ok' => false, 'error' => "생성 실패 (HTTP {$status}): {$detail}"];
+    }
+
+    if (isset($data['error'])) {
+        return ['ok' => false, 'error' => $data['error']];
+    }
+
+    return ['ok' => true, 'text' => (string)($data['response'] ?? '')];
+}
 
 define('AIHUB_VOICE_API_BASE', getenv('VOICE_API_URL') ?: 'http://127.0.0.1:7863');
 
@@ -284,6 +571,58 @@ function aihubGenerateVoice(array $params): array
     return ['ok' => true, 'audio' => $data['audio']];
 }
 
+define('AIHUB_3D_API_BASE', getenv('AIHUB_3D_API_URL') ?: 'http://127.0.0.1:7864');
+
+/**
+ * 로컬 Shap-E 서버(3d-gen/server.py)를 통한 텍스트→3D 에셋 생성.
+ * @return array{ok: bool, model?: string, error?: string}
+ */
+function aihubGenerate3D(array $params): array
+{
+    $prompt = trim((string)($params['prompt'] ?? ''));
+    $refImage = trim((string)($params['image'] ?? ''));
+    if ($prompt === '' && $refImage === '') {
+        return ['ok' => false, 'error' => '프롬프트를 입력하거나 참고 이미지를 첨부해 주세요.'];
+    }
+
+    $payload = [
+        'prompt' => aihubTranslateToEnglishPrompt($prompt),
+        'steps' => (int)($params['steps'] ?? 64),
+        'guidance_scale' => (float)($params['guidance_scale'] ?? 15.0),
+    ];
+    if ($refImage !== '') {
+        $payload['image'] = $refImage;
+    }
+
+    $ch = curl_init(AIHUB_3D_API_BASE . '/generate');
+    curl_setopt_array($ch, [
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_UNICODE),
+        CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 300,
+        CURLOPT_CONNECTTIMEOUT => 5,
+    ]);
+    $raw = curl_exec($ch);
+    $errno = curl_errno($ch);
+    $error = curl_error($ch);
+    $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($errno !== 0) {
+        return ['ok' => false, 'error' => "로컬 3D 생성 서버(3d-gen)에 연결할 수 없습니다: {$error}"];
+    }
+
+    $data = json_decode((string)$raw, true);
+
+    if (!is_array($data) || empty($data['ok'])) {
+        $detail = is_array($data) ? ($data['error'] ?? '') : substr((string)$raw, 0, 200);
+        return ['ok' => false, 'error' => $detail !== '' ? $detail : "생성 실패 (HTTP {$status})"];
+    }
+
+    return ['ok' => true, 'model' => $data['model']];
+}
+
 define('AIHUB_CODE_MODEL', getenv('AIHUB_CODE_MODEL') ?: 'qwen2.5-coder:7b');
 
 /**
@@ -297,10 +636,66 @@ function aihubGenerateCode(array $params): array
         return ['ok' => false, 'error' => '프롬프트를 입력해 주세요.'];
     }
 
+    $language = trim((string)($params['language'] ?? ''));
+    $languageInstruction = $language !== '' ? " 반드시 {$language}로 작성한다." : '';
+
     $payload = [
         'model' => AIHUB_CODE_MODEL,
-        'prompt' => $prompt,
-        'system' => '너는 코딩 도우미다. 요청받은 앱·코드를 바로 실행 가능한 완결된 형태로, 코드 블록과 짧은 설명만으로 답한다.',
+        'prompt' => aihubWithAttachment($prompt, (string)($params['attachment'] ?? '')),
+        'system' => '너는 코딩 도우미다. 요청받은 앱·코드를 바로 실행 가능한 완결된 형태로, 코드 블록과 짧은 설명만으로 답한다.' . $languageInstruction,
+        'stream' => false,
+    ];
+
+    $ch = curl_init(AIHUB_OLLAMA_API_BASE . '/api/generate');
+    curl_setopt_array($ch, [
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_UNICODE),
+        CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 180,
+        CURLOPT_CONNECTTIMEOUT => 5,
+    ]);
+    $raw = curl_exec($ch);
+    $errno = curl_errno($ch);
+    $error = curl_error($ch);
+    $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($errno !== 0) {
+        return ['ok' => false, 'error' => "로컬 코드 생성 서버(Ollama)에 연결할 수 없습니다: {$error}"];
+    }
+
+    $data = json_decode((string)$raw, true);
+
+    if ($status !== 200 || !is_array($data)) {
+        $detail = is_array($data) ? ($data['error'] ?? '') : substr((string)$raw, 0, 200);
+        return ['ok' => false, 'error' => "생성 실패 (HTTP {$status}): {$detail}"];
+    }
+
+    if (isset($data['error'])) {
+        return ['ok' => false, 'error' => $data['error']];
+    }
+
+    return ['ok' => true, 'text' => (string)($data['response'] ?? '')];
+}
+
+/**
+ * 로컬 Ollama(qwen2.5-coder)로 실행 가능한 단일 HTML UI 목업 생성(미리보기용).
+ * @return array{ok: bool, text?: string, error?: string}
+ */
+function aihubGenerateUI(array $params): array
+{
+    $prompt = trim((string)($params['prompt'] ?? ''));
+    if ($prompt === '') {
+        return ['ok' => false, 'error' => '프롬프트를 입력해 주세요.'];
+    }
+
+    $payload = [
+        'model' => AIHUB_CODE_MODEL,
+        'prompt' => aihubWithAttachment($prompt, (string)($params['attachment'] ?? '')),
+        'system' => '너는 UI/UX 디자이너 겸 프론트엔드 개발자다. 요청받은 화면을 모던하고 세련된 디자인으로, ' .
+            '인라인 CSS(+필요하면 JS)를 포함한 완전히 동작하는 단일 HTML 파일로 작성한다. ' .
+            '외부 이미지·폰트 CDN 없이 시스템 폰트와 CSS만으로 꾸민다. ```html 코드 블록 하나만 출력하고 다른 설명은 하지 않는다.',
         'stream' => false,
     ];
 
@@ -363,5 +758,6 @@ function aihubCheckStatus(): array
         ['name' => '음악 (music-gen, 7862)', 'ok' => aihubPing(AIHUB_MUSIC_API_BASE . '/health')],
         ['name' => '음성 (voice-gen, 7863)', 'ok' => aihubPing(AIHUB_VOICE_API_BASE . '/health')],
         ['name' => '문서·코드 (Ollama, 11434)', 'ok' => aihubPing(AIHUB_OLLAMA_API_BASE . '/api/tags')],
+        ['name' => '3D 에셋 (3d-gen, 7864)', 'ok' => aihubPing(AIHUB_3D_API_BASE . '/health')],
     ];
 }
