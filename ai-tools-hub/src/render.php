@@ -87,6 +87,16 @@ function aihubRenderHome(array $tools, array $tips): string
   .gen-result .code-text { white-space: pre-wrap; font-family: "Consolas", "D2Coding", monospace; font-size: 13px;
                             line-height: 1.6; background: #1e2530; color: #dbe4ee; border-radius: 6px;
                             padding: 14px 16px; overflow-x: auto; }
+  .status-list { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
+  .status-row { display: flex; align-items: center; gap: 10px; font-size: 13.5px; padding: 10px 14px;
+                 border: 1px solid var(--card-border); border-radius: 6px; background: var(--bg); }
+  .status-dot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; background: var(--faint); }
+  .status-dot.up { background: var(--up); }
+  .status-dot.down { background: var(--down); }
+  .status-row .status-label { flex: 1 1 auto; }
+  .status-row .status-text { font-size: 12px; font-weight: 700; }
+  .status-row .status-text.up { color: var(--up); }
+  .status-row .status-text.down { color: var(--down); }
   .legend { display: flex; gap: 16px; flex-wrap: wrap; align-items: baseline; font-size: 12px; color: var(--muted);
             margin: 0 0 16px; padding: 10px 14px; background: var(--card); border: 1px solid var(--card-border);
             border-radius: 6px; }
@@ -115,6 +125,7 @@ function aihubRenderHome(array $tools, array $tips): string
     <div class="tab" data-tab="doc-gen">📝 문서 생성</div>
     <div class="tab" data-tab="code-gen">💻 코드/앱 생성</div>
     <div class="tab" data-tab="voice-gen">🔊 음성 생성</div>
+    <div class="tab" data-tab="status">🩺 서버 상태</div>
     <div class="tab" data-tab="token-saving">💡 토큰 절약법</div>
   </div>
 
@@ -262,6 +273,20 @@ function aihubRenderHome(array $tools, array $tips): string
       <p class="hint">
         로컬 Coqui XTTS-v2로 생성합니다. 처음 한 번은 목소리 샘플을 업로드해야 하고, 그 다음부터는
         같은 목소리로 계속 재사용됩니다(서버에 저장됨). 다른 목소리로 바꾸려면 새 샘플을 다시 올리면 됩니다.
+      </p>
+    </div>
+  </div>
+
+  <div class="panel" id="panel-status">
+    <div class="gen-box">
+      <div class="gen-row">
+        <button id="status-refresh" type="button">상태 확인</button>
+      </div>
+      <div id="status-list" class="status-list"></div>
+      <p class="hint">
+        생성 기능이 안 될 때 여기서 어떤 서버가 꺼져 있는지 먼저 확인하세요.
+        전체를 한 번에 켜려면 <code>C:\swbins3\start-all.bat</code>을 실행하면 됩니다(처음엔 모델 로딩으로 1~2분 걸릴 수 있습니다).
+        끄려면 <code>stop-all.bat</code>을 실행하세요.
       </p>
     </div>
   </div>
@@ -631,6 +656,37 @@ document.getElementById('voice-submit').addEventListener('click', function () {
     submit(null);
   }
 });
+
+function refreshStatus() {
+  var listEl = document.getElementById('status-list');
+  listEl.innerHTML = '확인 중…';
+  fetch('/status')
+    .then(function (res) { return res.json(); })
+    .then(function (data) {
+      listEl.innerHTML = '';
+      (data.services || []).forEach(function (svc) {
+        var row = document.createElement('div');
+        row.className = 'status-row';
+        var dot = document.createElement('span');
+        dot.className = 'status-dot ' + (svc.ok ? 'up' : 'down');
+        var label = document.createElement('span');
+        label.className = 'status-label';
+        label.textContent = svc.name;
+        var text = document.createElement('span');
+        text.className = 'status-text ' + (svc.ok ? 'up' : 'down');
+        text.textContent = svc.ok ? '켜짐' : '꺼짐';
+        row.appendChild(dot);
+        row.appendChild(label);
+        row.appendChild(text);
+        listEl.appendChild(row);
+      });
+    })
+    .catch(function (err) {
+      listEl.textContent = '상태 확인 실패: ' + err;
+    });
+}
+document.getElementById('status-refresh').addEventListener('click', refreshStatus);
+refreshStatus();
 </script>
 </body>
 </html>

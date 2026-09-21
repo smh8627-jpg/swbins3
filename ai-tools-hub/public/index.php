@@ -63,4 +63,9 @@ $app->post('/generate/voice', function (Request $request, Response $response) {
     return $response->withHeader('Content-Type', 'application/json; charset=utf-8');
 });
 
+$app->get('/status', function (Request $request, Response $response) {
+    $response->getBody()->write(json_encode(['services' => aihubCheckStatus()], JSON_UNESCAPED_UNICODE));
+    return $response->withHeader('Content-Type', 'application/json; charset=utf-8');
+});
+
 $app->run();

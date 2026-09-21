@@ -233,6 +233,7 @@ function aihubGenerateDocument(array $params): array
     return ['ok' => true, 'text' => (string)($data['response'] ?? '')];
 }
 
+
 define('AIHUB_VOICE_API_BASE', getenv('VOICE_API_URL') ?: 'http://127.0.0.1:7863');
 
 /**
@@ -334,4 +335,33 @@ function aihubGenerateCode(array $params): array
     }
 
     return ['ok' => true, 'text' => (string)($data['response'] ?? '')];
+}
+
+/** 짧은 타임아웃으로 한 서비스의 응답 여부만 확인 (성공/실패만 필요, 응답 내용은 버림). */
+function aihubPing(string $url): bool
+{
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 2,
+        CURLOPT_CONNECTTIMEOUT => 2,
+    ]);
+    curl_exec($ch);
+    $errno = curl_errno($ch);
+    curl_close($ch);
+    return $errno === 0;
+}
+
+/**
+ * 로컬 AI 생성 백엔드 4개의 가동 여부를 확인.
+ * @return array<int, array{name: string, ok: bool}>
+ */
+function aihubCheckStatus(): array
+{
+    return [
+        ['name' => '이미지·동영상 (sd-webui, 7860)', 'ok' => aihubPing(AIHUB_SD_API_BASE . '/sdapi/v1/options')],
+        ['name' => '음악 (music-gen, 7862)', 'ok' => aihubPing(AIHUB_MUSIC_API_BASE . '/health')],
+        ['name' => '음성 (voice-gen, 7863)', 'ok' => aihubPing(AIHUB_VOICE_API_BASE . '/health')],
+        ['name' => '문서·코드 (Ollama, 11434)', 'ok' => aihubPing(AIHUB_OLLAMA_API_BASE . '/api/tags')],
+    ];
 }
