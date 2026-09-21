@@ -101,6 +101,7 @@ def generate():
             model = get_text_model()
             model_kwargs = dict(texts=[prompt])
     except Exception as exc:  # noqa: BLE001
+        app.logger.exception("모델 로드 실패")
         return jsonify(ok=False, error=f"모델 로드 실패: {exc}"), 500
 
     try:
@@ -131,8 +132,10 @@ def generate():
         _state["last_used"] = time.time()
         return jsonify(ok=True, model=base64.b64encode(glb_bytes).decode("ascii"))
     except torch.cuda.OutOfMemoryError:
+        app.logger.exception("GPU 메모리 부족")
         return jsonify(ok=False, error="GPU 메모리가 부족합니다. 잠시 후 다시 시도해 주세요."), 500
     except Exception as exc:  # noqa: BLE001
+        app.logger.exception("생성 실패")
         return jsonify(ok=False, error=f"생성 실패: {exc}"), 500
 
 

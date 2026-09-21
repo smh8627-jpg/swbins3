@@ -105,6 +105,12 @@ $app->post('/generate/3d', function (Request $request, Response $response) {
     return $response->withHeader('Content-Type', 'application/json; charset=utf-8');
 });
 
+$app->get('/progress/sd', function (Request $request, Response $response) {
+    $result = aihubSdProgress();
+    $response->getBody()->write(json_encode($result, JSON_UNESCAPED_UNICODE));
+    return $response->withHeader('Content-Type', 'application/json; charset=utf-8');
+});
+
 $app->get('/status', function (Request $request, Response $response) {
     $response->getBody()->write(json_encode(['services' => aihubCheckStatus()], JSON_UNESCAPED_UNICODE));
     return $response->withHeader('Content-Type', 'application/json; charset=utf-8');

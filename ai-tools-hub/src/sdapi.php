@@ -8,6 +8,18 @@ define('AIHUB_SD_API_BASE', getenv('SD_API_URL') ?: 'http://127.0.0.1:7860');
 define('AIHUB_OLLAMA_API_BASE', getenv('OLLAMA_API_URL') ?: 'http://127.0.0.1:11434');
 define('AIHUB_TRANSLATE_MODEL', getenv('AIHUB_TRANSLATE_MODEL') ?: 'qwen2.5:7b');
 
+// 생성 실패는 브라우저에 에러 메시지로만 내려가고 서버에는 안 남았다.
+// start-all.ps1로 띄우든 serve.ps1을 직접 띄우든 항상 같은 파일에 남도록 error_log 목적지를 고정한다.
+define('AIHUB_LOG_FILE', getenv('AIHUB_LOG_FILE') ?: (dirname(__DIR__, 2) . '\\logs\\ai-tools-hub-app.log'));
+@mkdir(dirname(AIHUB_LOG_FILE), 0777, true);
+ini_set('error_log', AIHUB_LOG_FILE);
+
+/** 로컬 생성 백엔드 연동 실패를 서버 로그(AIHUB_LOG_FILE)에 남긴다. */
+function aihubLogError(string $message): void
+{
+    error_log('[ai-tools-hub] ' . $message);
+}
+
 function aihubContainsKorean(string $text): bool
 {
     return (bool)preg_match('/[\x{AC00}-\x{D7A3}]/u', $text);
@@ -100,6 +112,7 @@ function aihubGenerateImage(array $params): array
     curl_close($ch);
 
     if ($errno !== 0) {
+        aihubLogError("이미지 생성 연결 실패: {$error}");
         return ['ok' => false, 'error' => "로컬 이미지 생성 서버(sd-webui)에 연결할 수 없습니다: {$error}"];
     }
 
@@ -107,10 +120,12 @@ function aihubGenerateImage(array $params): array
 
     if ($status !== 200 || !is_array($data)) {
         $detail = is_array($data) ? ($data['error'] ?? $data['detail'] ?? '') : substr((string)$raw, 0, 200);
+        aihubLogError("이미지 생성 실패 (HTTP {$status}): {$detail}");
         return ['ok' => false, 'error' => "생성 실패 (HTTP {$status}): {$detail}"];
     }
 
     if (empty($data['images'])) {
+        aihubLogError('이미지 생성 응답에 images가 없음(체크포인트 미로딩 가능성)');
         return ['ok' => false, 'error' => '이미지가 생성되지 않았습니다. 체크포인트 모델이 로드되어 있는지 확인해 주세요.'];
     }
 
@@ -184,6 +199,7 @@ function aihubGenerateVideo(array $params): array
     curl_close($ch);
 
     if ($errno !== 0) {
+        aihubLogError("영상 생성 연결 실패: {$error}");
         return ['ok' => false, 'error' => "로컬 영상 생성 서버(sd-webui)에 연결할 수 없습니다: {$error}"];
     }
 
@@ -191,10 +207,12 @@ function aihubGenerateVideo(array $params): array
 
     if ($status !== 200 || !is_array($data)) {
         $detail = is_array($data) ? ($data['error'] ?? $data['detail'] ?? '') : substr((string)$raw, 0, 200);
+        aihubLogError("영상 생성 실패 (HTTP {$status}): {$detail}");
         return ['ok' => false, 'error' => "생성 실패 (HTTP {$status}): {$detail}"];
     }
 
     if (empty($data['images'])) {
+        aihubLogError('영상 생성 응답에 images가 없음(체크포인트·모션 모듈 미준비 가능성)');
         return ['ok' => false, 'error' => '영상이 생성되지 않았습니다. 체크포인트·모션 모듈이 준비되어 있는지 확인해 주세요.'];
     }
 
@@ -232,6 +250,7 @@ function aihubGenerateMusic(array $params): array
     curl_close($ch);
 
     if ($errno !== 0) {
+        aihubLogError("음악 생성 연결 실패: {$error}");
         return ['ok' => false, 'error' => "로컬 음악 생성 서버(music-gen)에 연결할 수 없습니다: {$error}"];
     }
 
@@ -239,6 +258,7 @@ function aihubGenerateMusic(array $params): array
 
     if (!is_array($data) || empty($data['ok'])) {
         $detail = is_array($data) ? ($data['error'] ?? '') : substr((string)$raw, 0, 200);
+        aihubLogError("음악 생성 실패 (HTTP {$status}): {$detail}");
         return ['ok' => false, 'error' => "생성 실패 (HTTP {$status}): {$detail}"];
     }
 
@@ -359,6 +379,7 @@ function aihubWebSearch(string $query, int $limit = 5): array
     curl_close($ch);
 
     if ($errno !== 0) {
+        aihubLogError("웹 검색 연결 실패: {$error}");
         return ['ok' => false, 'error' => "웹 검색 서비스에 연결할 수 없습니다: {$error}"];
     }
 
@@ -443,6 +464,7 @@ function aihubGenerateDocument(array $params): array
     curl_close($ch);
 
     if ($errno !== 0) {
+        aihubLogError("문서/SNS 생성 연결 실패(Ollama): {$error}");
         return ['ok' => false, 'error' => "로컬 문서 생성 서버(Ollama)에 연결할 수 없습니다: {$error}"];
     }
 
@@ -450,10 +472,12 @@ function aihubGenerateDocument(array $params): array
 
     if ($status !== 200 || !is_array($data)) {
         $detail = is_array($data) ? ($data['error'] ?? '') : substr((string)$raw, 0, 200);
+        aihubLogError("문서/SNS 생성 실패 (HTTP {$status}): {$detail}");
         return ['ok' => false, 'error' => "생성 실패 (HTTP {$status}): {$detail}"];
     }
 
     if (isset($data['error'])) {
+        aihubLogError("문서/SNS 생성 실패(Ollama 응답 error): {$data['error']}");
         return ['ok' => false, 'error' => $data['error']];
     }
 
@@ -504,6 +528,7 @@ function aihubGenerateSocial(array $params): array
     curl_close($ch);
 
     if ($errno !== 0) {
+        aihubLogError("문서/SNS 생성 연결 실패(Ollama): {$error}");
         return ['ok' => false, 'error' => "로컬 문서 생성 서버(Ollama)에 연결할 수 없습니다: {$error}"];
     }
 
@@ -511,10 +536,12 @@ function aihubGenerateSocial(array $params): array
 
     if ($status !== 200 || !is_array($data)) {
         $detail = is_array($data) ? ($data['error'] ?? '') : substr((string)$raw, 0, 200);
+        aihubLogError("문서/SNS 생성 실패 (HTTP {$status}): {$detail}");
         return ['ok' => false, 'error' => "생성 실패 (HTTP {$status}): {$detail}"];
     }
 
     if (isset($data['error'])) {
+        aihubLogError("문서/SNS 생성 실패(Ollama 응답 error): {$data['error']}");
         return ['ok' => false, 'error' => $data['error']];
     }
 
@@ -558,6 +585,7 @@ function aihubGenerateVoice(array $params): array
     curl_close($ch);
 
     if ($errno !== 0) {
+        aihubLogError("음성 생성 연결 실패: {$error}");
         return ['ok' => false, 'error' => "로컬 음성 생성 서버(voice-gen)에 연결할 수 없습니다: {$error}"];
     }
 
@@ -565,6 +593,7 @@ function aihubGenerateVoice(array $params): array
 
     if (!is_array($data) || empty($data['ok'])) {
         $detail = is_array($data) ? ($data['error'] ?? '') : substr((string)$raw, 0, 200);
+        aihubLogError("음성 생성 실패 (HTTP {$status}): {$detail}");
         return ['ok' => false, 'error' => $detail !== '' ? $detail : "생성 실패 (HTTP {$status})"];
     }
 
@@ -610,6 +639,7 @@ function aihubGenerate3D(array $params): array
     curl_close($ch);
 
     if ($errno !== 0) {
+        aihubLogError("3D 생성 연결 실패: {$error}");
         return ['ok' => false, 'error' => "로컬 3D 생성 서버(3d-gen)에 연결할 수 없습니다: {$error}"];
     }
 
@@ -617,6 +647,7 @@ function aihubGenerate3D(array $params): array
 
     if (!is_array($data) || empty($data['ok'])) {
         $detail = is_array($data) ? ($data['error'] ?? '') : substr((string)$raw, 0, 200);
+        aihubLogError("3D 생성 실패 (HTTP {$status}): {$detail}");
         return ['ok' => false, 'error' => $detail !== '' ? $detail : "생성 실패 (HTTP {$status})"];
     }
 
@@ -662,6 +693,7 @@ function aihubGenerateCode(array $params): array
     curl_close($ch);
 
     if ($errno !== 0) {
+        aihubLogError("코드/UI 생성 연결 실패(Ollama): {$error}");
         return ['ok' => false, 'error' => "로컬 코드 생성 서버(Ollama)에 연결할 수 없습니다: {$error}"];
     }
 
@@ -669,10 +701,12 @@ function aihubGenerateCode(array $params): array
 
     if ($status !== 200 || !is_array($data)) {
         $detail = is_array($data) ? ($data['error'] ?? '') : substr((string)$raw, 0, 200);
+        aihubLogError("코드/UI 생성 실패 (HTTP {$status}): {$detail}");
         return ['ok' => false, 'error' => "생성 실패 (HTTP {$status}): {$detail}"];
     }
 
     if (isset($data['error'])) {
+        aihubLogError("코드/UI 생성 실패(Ollama 응답 error): {$data['error']}");
         return ['ok' => false, 'error' => $data['error']];
     }
 
@@ -715,6 +749,7 @@ function aihubGenerateUI(array $params): array
     curl_close($ch);
 
     if ($errno !== 0) {
+        aihubLogError("코드/UI 생성 연결 실패(Ollama): {$error}");
         return ['ok' => false, 'error' => "로컬 코드 생성 서버(Ollama)에 연결할 수 없습니다: {$error}"];
     }
 
@@ -722,14 +757,48 @@ function aihubGenerateUI(array $params): array
 
     if ($status !== 200 || !is_array($data)) {
         $detail = is_array($data) ? ($data['error'] ?? '') : substr((string)$raw, 0, 200);
+        aihubLogError("코드/UI 생성 실패 (HTTP {$status}): {$detail}");
         return ['ok' => false, 'error' => "생성 실패 (HTTP {$status}): {$detail}"];
     }
 
     if (isset($data['error'])) {
+        aihubLogError("코드/UI 생성 실패(Ollama 응답 error): {$data['error']}");
         return ['ok' => false, 'error' => $data['error']];
     }
 
     return ['ok' => true, 'text' => (string)($data['response'] ?? '')];
+}
+
+/**
+ * sd-webui의 진행률 API를 그대로 프록시(생성 요청과 별도 커넥션이라 폴링 가능).
+ * @return array{ok: bool, progress?: float, eta_relative?: float}
+ */
+function aihubSdProgress(): array
+{
+    $ch = curl_init(AIHUB_SD_API_BASE . '/sdapi/v1/progress?skip_current_image=true');
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 5,
+        CURLOPT_CONNECTTIMEOUT => 3,
+    ]);
+    $raw = curl_exec($ch);
+    $errno = curl_errno($ch);
+    curl_close($ch);
+
+    if ($errno !== 0) {
+        return ['ok' => false];
+    }
+
+    $data = json_decode((string)$raw, true);
+    if (!is_array($data)) {
+        return ['ok' => false];
+    }
+
+    return [
+        'ok' => true,
+        'progress' => (float)($data['progress'] ?? 0),
+        'eta_relative' => (float)($data['eta_relative'] ?? 0),
+    ];
 }
 
 /** 짧은 타임아웃으로 한 서비스의 응답 여부만 확인 (성공/실패만 필요, 응답 내용은 버림). */

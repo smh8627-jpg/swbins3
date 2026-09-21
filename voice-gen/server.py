@@ -76,6 +76,7 @@ def generate():
             with open(REFERENCE_PATH, "wb") as f:
                 f.write(base64.b64decode(speaker_wav_b64))
         except Exception as exc:  # noqa: BLE001
+            app.logger.exception("참조 음성 저장 실패")
             return jsonify(ok=False, error=f"참조 음성 저장 실패: {exc}"), 400
 
     if not os.path.isfile(REFERENCE_PATH):
@@ -87,6 +88,7 @@ def generate():
     try:
         tts = get_tts()
     except Exception as exc:  # noqa: BLE001
+        app.logger.exception("모델 로드 실패")
         return jsonify(ok=False, error=f"모델 로드 실패: {exc}"), 500
 
     try:
@@ -96,8 +98,10 @@ def generate():
         _state["last_used"] = time.time()
         return jsonify(ok=True, audio=audio_b64)
     except torch.cuda.OutOfMemoryError:
+        app.logger.exception("GPU 메모리 부족")
         return jsonify(ok=False, error="GPU 메모리가 부족합니다. 텍스트 길이를 줄여서 다시 시도해 주세요."), 500
     except Exception as exc:  # noqa: BLE001
+        app.logger.exception("생성 실패")
         return jsonify(ok=False, error=f"생성 실패: {exc}"), 500
 
 

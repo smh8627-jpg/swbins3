@@ -89,6 +89,9 @@ function aihubRenderHome(array $tips): string
   .gen-status { margin-top: 14px; font-size: 13px; }
   .gen-status.error { color: var(--down); }
   .gen-status.loading { color: var(--muted); }
+  .gen-progress { margin-top: 8px; height: 6px; border-radius: 999px; background: var(--panel-bg);
+                   border: 1px solid var(--border); overflow: hidden; display: none; }
+  .gen-progress-bar { height: 100%; width: 0%; background: var(--accent); transition: width .25s ease; }
   .gen-result { margin-top: 16px; }
   .gen-result img, .gen-result video { max-width: 100%; border-radius: 10px; border: 1px solid var(--border); display: block; }
   .gen-result audio { width: 100%; }
@@ -207,6 +210,7 @@ function aihubRenderHome(array $tips): string
       </div>
 
       <div class="gen-status" id="gen-status" hidden></div>
+      <div class="gen-progress" id="gen-progress"><div class="gen-progress-bar" id="gen-progress-bar"></div></div>
       <div class="gen-result" id="gen-result"></div>
       <p class="hint" id="gen-hint"></p>
     </div>
@@ -253,16 +257,16 @@ var GEN_TYPES = {
     file: { label: '참고 이미지(선택)', accept: 'image/*', mode: 'base64', field: 'init_image' },
     promptLabel: '프롬프트 (영어일수록 결과가 좋습니다)',
     variants: {
-      general: { label: '일반', endpoint: '/generate/image', opts: ['size', 'steps'],
+      general: { label: '일반', endpoint: '/generate/image', opts: ['size', 'steps'], sdProgress: true,
                  placeholder: '예: a cozy cabin in a snowy forest, warm lighting, digital painting',
                  hint: '로컬 Stable Diffusion(sd-webui)으로 생성합니다. 참고 이미지를 첨부하면 그 이미지를 바탕으로 변형합니다(img2img).' },
-      webtoon: { label: '웹툰/만화', endpoint: '/generate/webtoon', opts: ['steps'],
+      webtoon: { label: '웹툰/만화', endpoint: '/generate/webtoon', opts: ['steps'], sdProgress: true,
                  placeholder: '예: a girl looking at the sunset, school rooftop',
                  hint: '웹툰/만화 스타일 프리셋(세로 컷, 클린 라인아트)을 적용합니다.' },
-      design: { label: '디자인(로고·포스터)', endpoint: '/generate/design', opts: ['size', 'steps'],
+      design: { label: '디자인(로고·포스터)', endpoint: '/generate/design', opts: ['size', 'steps'], sdProgress: true,
                 placeholder: '예: minimalist logo for a coffee shop, letter M, line art',
                 hint: '플랫 디자인/로고·포스터 프리셋을 적용합니다. 텍스트 렌더링은 정확하지 않을 수 있습니다.' },
-      asset2d: { label: '2D 게임 에셋', endpoint: '/generate/asset2d', opts: ['steps'],
+      asset2d: { label: '2D 게임 에셋', endpoint: '/generate/asset2d', opts: ['steps'], sdProgress: true,
                  placeholder: '예: healing potion bottle icon, fantasy RPG item',
                  hint: '2D 게임 아이콘/스프라이트 프리셋(단색 배경, 중앙 정렬)을 적용합니다. Godot·Unity엔 배경 제거가 별도로 필요합니다.' }
     }
@@ -271,7 +275,7 @@ var GEN_TYPES = {
     icon: '🎬', label: '동영상', hasNegative: true, resultKind: 'video',
     file: { label: '참고 이미지(선택)', accept: 'image/*', mode: 'base64', field: 'init_image' },
     promptLabel: '프롬프트 (영어일수록 결과가 좋습니다)',
-    variants: { general: { label: '일반', endpoint: '/generate/video', opts: ['length', 'fps', 'steps'],
+    variants: { general: { label: '일반', endpoint: '/generate/video', opts: ['length', 'fps', 'steps'], sdProgress: true,
                 placeholder: '예: a cat walking on a beach, waves, sunset, smooth motion',
                 hint: 'AnimateDiff(로컬 sd-webui 확장)로 짧은 클립을 생성합니다. GPU VRAM 6GB급 기준 1~수 분 걸릴 수 있습니다.' } }
   },
@@ -434,6 +438,7 @@ function applyVariant() {
   document.getElementById('gen-submit').textContent = t.label + ' 생성';
   document.getElementById('gen-hint').textContent = v.hint;
   document.getElementById('gen-status').hidden = true;
+  document.getElementById('gen-progress').style.display = 'none';
   document.getElementById('gen-result').innerHTML = '';
 }
 
@@ -544,12 +549,63 @@ function renderResult(resultEl, kind, data) {
   return false;
 }
 
+// sd-webui 진행률(/progress/sd)을 폴링해 실제 %를 보여준다.
+function pollSdProgress(statusEl, progressBar) {
+  var stopped = false;
+  function tick() {
+    if (stopped) { return; }
+    fetch('/progress/sd')
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        if (stopped) { return; }
+        if (data.ok) {
+          var pct = Math.max(0, Math.min(100, Math.round((data.progress || 0) * 100)));
+          progressBar.style.width = pct + '%';
+          var eta = data.eta_relative > 0 ? ' · 남은 약 ' + Math.ceil(data.eta_relative) + '초' : '';
+          statusEl.textContent = '생성 중입니다… (' + pct + '%' + eta + ')';
+        }
+        if (!stopped) { setTimeout(tick, 800); }
+      })
+      .catch(function () { if (!stopped) { setTimeout(tick, 1500); } });
+  }
+  tick();
+  return function stop() { stopped = true; };
+}
+
+// sd-webui 외 백엔드(음악·음성·3D·Ollama 계열)는 진행률 API가 없어서, 예상 소요시간 기준
+// 경과시간 비례(점근선 92%까지)로 "예상 %"를 보여준다. 실제 응답이 오면 100%로 마무리된다.
+function simulateProgress(statusEl, progressBar, estSeconds) {
+  var start = Date.now();
+  var stopped = false;
+  var timer = setInterval(function () {
+    if (stopped) { return; }
+    var elapsed = (Date.now() - start) / 1000;
+    var pct = Math.min(92, Math.round(92 * (1 - Math.exp(-elapsed / estSeconds))));
+    progressBar.style.width = pct + '%';
+    statusEl.textContent = '생성 중입니다… (예상 ' + pct + '%)';
+  }, 400);
+  return function stop() { stopped = true; clearInterval(timer); };
+}
+
+// 진행률 API가 없는 백엔드용 대략적인 예상 소요시간(초).
+function estimateSeconds(type, variant, body) {
+  if (type === 'music') { return Math.max(8, (body.duration || 8) * 4); }
+  if (type === 'voice') { return Math.max(8, ((body.text || '').length / 8)); }
+  if (type === 'model3d') { return Math.max(15, ((body.steps || 64) / 64) * 45); }
+  if (type === 'code' && variant === 'ui') { return 30; }
+  if (type === 'code') { return 20; }
+  if (body.web_search) { return 20; }
+  return 14;
+}
+
 document.getElementById('gen-submit').addEventListener('click', function () {
   var btn = this;
   var t = GEN_TYPES[currentType];
   var v = t.variants[currentVariant];
   var statusEl = document.getElementById('gen-status');
   var resultEl = document.getElementById('gen-result');
+  var progressEl = document.getElementById('gen-progress');
+  var progressBar = document.getElementById('gen-progress-bar');
   var prompt = document.getElementById('gen-prompt').value.trim();
   var negative = document.getElementById('gen-negative').value.trim();
   var file = t.file ? document.getElementById('gen-file').files[0] : null;
@@ -565,7 +621,9 @@ document.getElementById('gen-submit').addEventListener('click', function () {
   btn.disabled = true;
   statusEl.hidden = false;
   statusEl.className = 'gen-status loading';
-  statusEl.textContent = '생성 중입니다… (모델·작업에 따라 수십 초~수 분 걸릴 수 있습니다)';
+  statusEl.textContent = '생성 준비 중…';
+  progressEl.style.display = '';
+  progressBar.style.width = '0%';
   resultEl.innerHTML = '';
 
   var readFn = t.file && t.file.mode === 'text' ? readFileAsText : readFileAsBase64;
@@ -596,6 +654,11 @@ document.getElementById('gen-submit').addEventListener('click', function () {
     if (v.opts.indexOf('language') !== -1) { body.language = document.getElementById('opt-language').value; }
     if (v.opts.indexOf('websearch') !== -1) { body.web_search = document.getElementById('opt-websearch').checked; }
 
+    statusEl.textContent = '생성 중입니다…';
+    var stopProgress = v.sdProgress
+      ? pollSdProgress(statusEl, progressBar)
+      : simulateProgress(statusEl, progressBar, estimateSeconds(currentType, currentVariant, body));
+
     fetch(v.endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -603,15 +666,21 @@ document.getElementById('gen-submit').addEventListener('click', function () {
     })
       .then(function (res) { return res.json(); })
       .then(function (data) {
+        stopProgress();
         btn.disabled = false;
         if (data.ok && renderResult(resultEl, v.resultKind || t.resultKind, data)) {
+          progressBar.style.width = '100%';
+          setTimeout(function () { progressEl.style.display = 'none'; }, 300);
           statusEl.hidden = true;
         } else {
+          progressEl.style.display = 'none';
           statusEl.className = 'gen-status error';
           statusEl.textContent = data.error || '알 수 없는 오류가 발생했습니다.';
         }
       })
       .catch(function (err) {
+        stopProgress();
+        progressEl.style.display = 'none';
         btn.disabled = false;
         statusEl.className = 'gen-status error';
         statusEl.textContent = '요청 중 오류가 발생했습니다: ' + err;

@@ -70,6 +70,7 @@ def generate():
     try:
         processor, model = get_model()
     except Exception as exc:  # noqa: BLE001
+        app.logger.exception("모델 로드 실패")
         return jsonify(ok=False, error=f"모델 로드 실패: {exc}"), 500
 
     try:
@@ -87,8 +88,10 @@ def generate():
         _state["last_used"] = time.time()
         return jsonify(ok=True, audio=wav_b64)
     except torch.cuda.OutOfMemoryError:
+        app.logger.exception("GPU 메모리 부족")
         return jsonify(ok=False, error="GPU 메모리가 부족합니다. 길이를 줄여서 다시 시도해 주세요."), 500
     except Exception as exc:  # noqa: BLE001
+        app.logger.exception("생성 실패")
         return jsonify(ok=False, error=f"생성 실패: {exc}"), 500
 
 
