@@ -20,5 +20,37 @@
 
 ## 다른 모델로 바꾸기
 
-`dev-agent.bat`의 `--model ollama_chat/qwen2.5-coder:7b` 부분을 다른 Ollama 모델로 바꾸면 됩니다.
-더 큰 모델(예: `qwen2.5-coder:32b`, VRAM 넉넉하면)일수록 품질이 좋아집니다.
+`dev-agent.bat`에 모델 이름을 인자로 넘기면 됩니다(안 주면 기본값 `ollama_chat/qwen2.5-coder:7b`).
+
+```powershell
+# 로컬의 더 큰 모델 (VRAM 여유 있을 때만 — 이 PC의 RTX 4050 6GB로는 버거울 수 있음)
+C:\swbins3\aider\dev-agent.bat ollama_chat/qwen2.5-coder:14b
+```
+
+## 선택 사항: 무료 등급 클라우드 API
+
+로컬 모델로는 한계가 있을 때, **완전히 선택 사항**으로 무료 등급이 있는 클라우드 API를 쓸 수 있습니다.
+기본값이 아니고, 아래처럼 직접 모델을 지정했을 때만 사용됩니다 — 이 경우 코드/프롬프트가 해당 회사 서버로 전송됩니다.
+
+```powershell
+$env:GEMINI_API_KEY = "발급받은 키"
+C:\swbins3\aider\dev-agent.bat gemini/gemini-2.0-flash
+
+# 또는
+$env:GROQ_API_KEY = "발급받은 키"
+C:\swbins3\aider\dev-agent.bat groq/llama-3.3-70b-versatile
+```
+
+⚠️ **무료 등급은 속도 제한(rate limit)이 있어서, 빠르게 여러 번 요청하면 대기하거나 에러가 납니다.**
+Aider는 반복적으로 여러 번 호출하는 도구라 이 제한에 잘 걸립니다. 대략적인 기준(가입 시점에 따라 바뀔 수 있으니
+발급 페이지에서 최신 수치를 꼭 확인하세요):
+
+| 제공사 | 대략적인 무료 한도 | 초과 시 |
+|---|---|---|
+| Google Gemini (Flash 계열) | 분당 요청 수 제한(RPM) + 일일 요청 수 제한(RPD) | 429 에러, 다음 분/다음 날까지 대기 |
+| Google Gemini (Pro 계열) | Flash보다 훨씬 낮은 RPM/RPD | 429 에러 |
+| Groq | 모델별 분당·일일 요청 수 + 토큰 수 제한 | 429 에러, 헤더에 재시도 대기시간(`retry-after`) 포함 |
+
+에러가 나면 잠시 기다렸다가 다시 시도하거나(Aider가 자동 재시도하기도 함), 그 사이엔 기본값인 로컬 모델로 돌아가면 됩니다.
+발급은 가입만 하면 되고(카드 등록 불필요한 경우가 많음), 정확한 한도는 반드시 각 서비스 콘솔에서 최신 값을 확인하세요 —
+여기 적힌 수치는 시점에 따라 바뀝니다.

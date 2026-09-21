@@ -13,3 +13,4 @@ voice-gen/_last_output.wav
 3d-gen/__pycache__/
 aider/venv/
 aider/__pycache__/
+.aider*

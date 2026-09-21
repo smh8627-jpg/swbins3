@@ -1,5 +1,12 @@
 @echo off
-rem 로컬 Ollama(qwen2.5-coder:7b)를 파일 읽기/쓰기/git 커밋까지 하는 코딩 에이전트(Aider)로 실행.
-rem 사용법: 작업할 프로젝트 폴더에서 이 배치파일을 실행 (git 저장소여야 함, 아니면 aider가 자동으로 git init 여부를 물어봄)
+rem Coding agent (Aider). Default: local Ollama qwen2.5-coder:7b. Pass a model name to override.
+rem Usage: run this from the target project folder (git repo recommended, aider auto-commits changes)
+rem
+rem Examples:
+rem   dev-agent.bat                              -> default (local qwen2.5-coder:7b)
+rem   dev-agent.bat ollama_chat/qwen2.5-coder:14b -> bigger local model (needs more VRAM)
+rem   dev-agent.bat gemini/gemini-2.0-flash       -> free-tier cloud (set GEMINI_API_KEY first, see README)
+set MODEL=%1
+if "%MODEL%"=="" set MODEL=ollama_chat/qwen2.5-coder:7b
 set OLLAMA_API_BASE=http://127.0.0.1:11434
-"%~dp0venv\Scripts\aider.exe" --model ollama_chat/qwen2.5-coder:7b %*
+"%~dp0venv\Scripts\aider.exe" --model %MODEL%
