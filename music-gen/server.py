@@ -5,13 +5,15 @@
 """
 import base64
 import io
+import os
 
 import scipy.io.wavfile
 import torch
 from flask import Flask, jsonify, request
 from transformers import AutoProcessor, MusicgenForConditionalGeneration
 
-MODEL_NAME = "facebook/musicgen-small"
+_LOCAL_MODEL_DIR = os.path.join(os.path.dirname(__file__), "models", "musicgen-small")
+MODEL_NAME = _LOCAL_MODEL_DIR if os.path.isdir(_LOCAL_MODEL_DIR) else "facebook/musicgen-small"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 app = Flask(__name__)

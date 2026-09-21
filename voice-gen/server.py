@@ -15,6 +15,8 @@ MODEL_NAME = "tts_models/multilingual/multi-dataset/xtts_v2"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 REFERENCE_PATH = os.path.join(os.path.dirname(__file__), "reference.wav")
 OUTPUT_PATH = os.path.join(os.path.dirname(__file__), "_last_output.wav")
+_LOCAL_MODEL_DIR = os.path.join(os.path.dirname(__file__), "models", "xtts_v2")
+_LOCAL_CONFIG_PATH = os.path.join(_LOCAL_MODEL_DIR, "config.json")
 
 app = Flask(__name__)
 _state = {"tts": None}
@@ -22,7 +24,10 @@ _state = {"tts": None}
 
 def get_tts():
     if _state["tts"] is None:
-        _state["tts"] = TTS(MODEL_NAME).to(DEVICE)
+        if os.path.isfile(_LOCAL_CONFIG_PATH):
+            _state["tts"] = TTS(model_path=_LOCAL_MODEL_DIR, config_path=_LOCAL_CONFIG_PATH).to(DEVICE)
+        else:
+            _state["tts"] = TTS(MODEL_NAME).to(DEVICE)
     return _state["tts"]
 
 

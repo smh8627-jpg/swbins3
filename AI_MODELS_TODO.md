@@ -14,48 +14,71 @@ IT에 예외 요청할 때 도메인: `huggingface.co` + `*.cdn-lfs*.huggingface
 
 ## 2. 동영상 생성용 모션 모듈 (필수)
 
-- 파일: `mm_sd_v15_v2.safetensors`
-- 용량: 약 1.7GB
-- 받는 곳: https://huggingface.co/conrevo/AnimateDiff-A1111/tree/main (fp16/safetensors 버전 권장)
+- 파일: `mm_sd15_v2.safetensors`
+- 용량: 약 909MB
+- 받는 곳: https://huggingface.co/conrevo/AnimateDiff-A1111/resolve/main/motion_module/mm_sd15_v2.safetensors
 - 넣을 위치: `C:\swbins3\sd-webui\extensions\sd-webui-animatediff\model\`
 - 상태: ❌ 미다운로드 (방화벽 차단)
 
-## 3. 음악 생성 모델 (자동 다운로드, 수동 작업 불필요)
+## 3. 음악 생성 모델 (자동 다운로드, 수동 작업도 가능)
 
 - 모델: `facebook/musicgen-small` (Hugging Face `transformers` 라이브러리가 최초 실행 시 자동으로 받음)
 - 용량: 약 2GB
-- 받는 곳: huggingface.co (자동, 캐시 위치 `%USERPROFILE%\.cache\huggingface\`)
+- 받는 곳(자동): huggingface.co (캐시 위치 `%USERPROFILE%\.cache\huggingface\`)
+- 받는 곳(수동, 직접 다운로드용): https://huggingface.co/facebook/musicgen-small/tree/main 에서 이 폴더의 파일 전체를 받아야 함
+  (핵심 가중치: https://huggingface.co/facebook/musicgen-small/resolve/main/model.safetensors, 그 외 config.json/generation_config.json/preprocessor_config.json/tokenizer 관련 파일들도 같은 폴더에서 전부 받기)
+- 넣을 위치: `C:\swbins3\music-gen\models\musicgen-small\` (폴더가 없으면 새로 만들고 받은 파일들을 그대로 복사)
+- ✅ 코드 반영 완료: `music-gen/server.py`가 이 폴더가 존재하면 자동으로 로컬 모델을 쓰고, 없으면 기존처럼 `facebook/musicgen-small`을 huggingface.co에서 자동 다운로드하도록 수정해둠 (인터넷 연결 불필요)
 - 상태: ⏳ 서버 코드 준비 중, 방화벽 풀리면 최초 실행 시 자동 다운로드됨
 
 ## 4. 문서 생성 모델 (Ollama, 명령어로 자동 다운로드)
 
 - 모델: `qwen2.5:7b` (Ollama로 관리, 이미 이 PC에 Ollama 설치되어 있음)
 - 용량: 약 4.7GB
-- 받는 곳: `registry.ollama.ai` (자동)
-- 방화벽 풀리면 실행할 명령: `ollama pull qwen2.5:7b`
+- 받는 곳(자동): `registry.ollama.ai` — 방화벽 풀리면 `ollama pull qwen2.5:7b`
+- 받는 곳(수동, GGUF 직접 다운로드): https://huggingface.co/bartowski/Qwen2.5-7B-Instruct-GGUF/resolve/main/Qwen2.5-7B-Instruct-Q4_K_M.gguf (4.68GB, huggingface.co 도메인이라 별도 예외 불필요)
+  → 받은 뒤 아래처럼 Ollama에 로컬 등록:
+  ```
+  echo FROM ./Qwen2.5-7B-Instruct-Q4_K_M.gguf > Modelfile
+  ollama create qwen2.5:7b -f Modelfile
+  ```
 - 상태: ❌ 미다운로드 (방화벽 차단 — huggingface.co와 같은 "전문/특화 AI 기타" 정책)
 
 ## 5. 코드/앱 생성 모델 (Ollama, 명령어로 자동 다운로드)
 
 - 모델: `qwen2.5-coder:7b`
 - 용량: 약 4.7GB
-- 받는 곳: `registry.ollama.ai` (자동, 4번과 같은 도메인)
-- 방화벽 풀리면 실행할 명령: `ollama pull qwen2.5-coder:7b`
+- 받는 곳(자동): `registry.ollama.ai` — 방화벽 풀리면 `ollama pull qwen2.5-coder:7b`
+- 받는 곳(수동, GGUF 직접 다운로드): https://huggingface.co/Qwen/Qwen2.5-Coder-7B-Instruct-GGUF/resolve/main/qwen2.5-coder-7b-instruct-q4_k_m.gguf (4.68GB, huggingface.co 도메인)
+  → 받은 뒤 4번과 동일하게 `Modelfile` + `ollama create qwen2.5-coder:7b -f Modelfile`
 - 상태: ❌ 미다운로드 (방화벽 차단)
 
-## 6. 음성 생성 모델 (자동 다운로드, 수동 작업 불필요)
+## 6. 음성 생성 모델 (자동 다운로드, 수동 작업도 가능)
 
 - 모델: `coqui/XTTS-v2` (Coqui `TTS` 라이브러리가 최초 실행 시 자동으로 받음)
 - 용량: 약 1.8GB
-- 받는 곳: huggingface.co (자동)
+- 받는 곳(자동): huggingface.co
+- 받는 곳(수동): https://huggingface.co/coqui/XTTS-v2/tree/main 에서 아래 파일들을 모두 받아 같은 폴더에 저장
+  - `config.json` (4.82KB) — https://huggingface.co/coqui/XTTS-v2/resolve/main/config.json
+  - `model.pth` (1.86GB) — https://huggingface.co/coqui/XTTS-v2/resolve/main/model.pth
+  - `dvae.pth` (211MB) — https://huggingface.co/coqui/XTTS-v2/resolve/main/dvae.pth
+  - `vocab.json` (335KB) — https://huggingface.co/coqui/XTTS-v2/resolve/main/vocab.json
+  - `mel_stats.pth` (1.07KB) — https://huggingface.co/coqui/XTTS-v2/resolve/main/mel_stats.pth
+- 넣을 위치: `C:\swbins3\voice-gen\models\xtts_v2\` (폴더가 없으면 새로 만들고 위 5개 파일을 그대로 복사)
+- ✅ 코드 반영 완료: `voice-gen/server.py`가 이 폴더에 `config.json`이 있으면 `model_path`/`config_path`로 로컬 모델을 직접 불러오고(캐시 폴더명 신경 쓸 필요 없음), 없으면 기존처럼 자동 다운로드하도록 수정해둠
 - ⚠️ 라이선스: XTTS-v2는 비상업적 용도(CPML 라이선스)입니다. `voice-gen/run.bat`에서 `COQUI_TOS_AGREED=1`로 동의를 자동 처리해뒀습니다 — 사내 업무용으로만 쓰고 상업적 배포는 하지 마세요.
 - 상태: ❌ 미다운로드 (방화벽 차단)
 
-## 7. 3D 에셋 생성 모델 (자동 다운로드, 수동 작업 불필요)
+## 7. 3D 에셋 생성 모델 (자동 다운로드, 수동 작업도 가능)
 
-- 모델: `transmitter`, `text300M`(텍스트→3D), `image300M`(이미지→3D) — OpenAI Shap-E가 최초 실행 시 자동으로 받음
+- 모델: `transmitter`(공용 인코더), `text_cond`(텍스트→3D, 문서상 "text300M"), `image_cond`(이미지→3D, 문서상 "image300M") — OpenAI Shap-E가 최초 실행 시 자동으로 받음
 - 용량: 세 개 합쳐 약 2~3GB
-- 받는 곳: `openaipublic.azureedge.net` (자동, 캐시 위치 `%USERPROFILE%\.cache\`) — huggingface.co와는 다른 도메인이라 **별도로 방화벽 예외 필요**
+- 받는 곳(자동): `openaipublic.azureedge.net` (캐시 위치 `%USERPROFILE%\.cache\`) — huggingface.co와는 다른 도메인이라 **별도로 방화벽 예외 필요**
+- 받는 곳(수동, 직접 다운로드 URL):
+  - `transmitter.pt` → https://openaipublic.azureedge.net/main/shap-e/transmitter.pt
+  - `text_cond.pt` → https://openaipublic.azureedge.net/main/shap-e/text_cond.pt
+  - `image_cond.pt` → https://openaipublic.azureedge.net/main/shap-e/image_cond.pt
+  받은 파일은 `%USERPROFILE%\.cache\shap_e\` 폴더에 그대로 넣으면 됨(파일명 그대로 유지)
 - IT에 추가로 예외 요청할 도메인: `openaipublic.azureedge.net`
 - 확인: `curl.exe -I https://openaipublic.azureedge.net` 이 막혀 있으면(현재 상태) `3d-gen` 탭에서 "모델 로드 실패" 에러가 남
 - 상태: ❌ 미다운로드 (방화벽 차단, huggingface.co와 별개 도메인)
@@ -73,7 +96,7 @@ IT에 예외 요청할 때 도메인: `huggingface.co` + `*.cdn-lfs*.huggingface
   받는 곳: https://huggingface.co/s6yx/ReV_Animated/resolve/main/rev_1.2.2/rev_1.2.2-fp16.safetensors
 - 넣을 위치: `C:\swbins3\sd-webui\models\Stable-diffusion\`
 - 적용 방법: 받은 뒤 sd-webui 웹 UI(http://127.0.0.1:7860) 상단 체크포인트 드롭다운에서 선택하거나,
-  `curl.exe -X POST -H "Content-Type: application/json" -d "{\"sd_model_checkpoint\":\"counterfeitV30_v30.safetensors\"}" http://127.0.0.1:7860/sdapi/v1/options` 로 API 전환
+  `curl.exe -X POST -H "Content-Type: application/json" -d "{\"sd_model_checkpoint\":\"Counterfeit-V3.0_fp16.safetensors\"}" http://127.0.0.1:7860/sdapi/v1/options` 로 API 전환
 - 상태: ❌ 미다운로드 (방화벽 차단, huggingface.co — 1번과 같은 도메인)
 
 ## 확인 방법
