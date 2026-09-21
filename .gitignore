@@ -11,6 +11,11 @@ voice-gen/reference.wav
 voice-gen/_last_output.wav
 3d-gen/venv/
 3d-gen/__pycache__/
+3d-gen/models/
+music-gen/models/
+voice-gen/models/
+ollama/
 aider/venv/
 aider/__pycache__/
 .aider*
+bash.exe.stackdump
