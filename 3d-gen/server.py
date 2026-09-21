@@ -2,11 +2,16 @@
 """
 로컬 Shap-E(OpenAI) 텍스트/이미지→3D 생성 API 서버. ai-tools-hub(PHP)가 이 서버(기본 포트 7864)로 요청을 보낸다.
 프롬프트 또는 참고 이미지로 3D 메시를 생성해 glTF 바이너리(.glb)로 반환한다. Godot·Unity·웹(three.js 등)에 바로 임포트 가능.
+VRAM이 넉넉하지 않아(sd-webui·music-gen·voice-gen과 동시에 켜두는 경우가 많음) 일정 시간
+미사용 시 자동으로 GPU 메모리에서 내린다(IDLE_UNLOAD_SECONDS, 기본 5분).
 """
 import base64
+import gc
 import io
 import os
 import tempfile
+import threading
+import time
 
 import torch
 import trimesh
@@ -19,28 +24,60 @@ from shap_e.models.download import load_config, load_model
 from shap_e.util.notebooks import decode_latent_mesh
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+IDLE_UNLOAD_SECONDS = int(os.environ.get("IDLE_UNLOAD_SECONDS", "300"))
 
 app = Flask(__name__)
-_state = {"xm": None, "text_model": None, "image_model": None, "diffusion": None}
+_lock = threading.Lock()
+_state = {"xm": None, "text_model": None, "image_model": None, "diffusion": None, "last_used": 0.0}
 
 
 def get_transmitter_and_diffusion():
-    if _state["xm"] is None:
-        _state["xm"] = load_model("transmitter", device=DEVICE)
-        _state["diffusion"] = diffusion_from_config(load_config("diffusion"))
-    return _state["xm"], _state["diffusion"]
+    with _lock:
+        if _state["xm"] is None:
+            _state["xm"] = load_model("transmitter", device=DEVICE)
+            _state["diffusion"] = diffusion_from_config(load_config("diffusion"))
+        _state["last_used"] = time.time()
+        return _state["xm"], _state["diffusion"]
 
 
 def get_text_model():
-    if _state["text_model"] is None:
-        _state["text_model"] = load_model("text300M", device=DEVICE)
-    return _state["text_model"]
+    with _lock:
+        if _state["text_model"] is None:
+            _state["text_model"] = load_model("text300M", device=DEVICE)
+        _state["last_used"] = time.time()
+        return _state["text_model"]
 
 
 def get_image_model():
-    if _state["image_model"] is None:
-        _state["image_model"] = load_model("image300M", device=DEVICE)
-    return _state["image_model"]
+    with _lock:
+        if _state["image_model"] is None:
+            _state["image_model"] = load_model("image300M", device=DEVICE)
+        _state["last_used"] = time.time()
+        return _state["image_model"]
+
+
+def _unload_models():
+    with _lock:
+        if _state["xm"] is None and _state["text_model"] is None and _state["image_model"] is None:
+            return
+        _state["xm"] = None
+        _state["diffusion"] = None
+        _state["text_model"] = None
+        _state["image_model"] = None
+    gc.collect()
+    if DEVICE == "cuda":
+        torch.cuda.empty_cache()
+
+
+def _idle_unload_watcher():
+    while True:
+        time.sleep(30)
+        any_loaded = _state["xm"] is not None or _state["text_model"] is not None or _state["image_model"] is not None
+        if any_loaded and DEVICE == "cuda" and time.time() - _state["last_used"] >= IDLE_UNLOAD_SECONDS:
+            _unload_models()
+
+
+threading.Thread(target=_idle_unload_watcher, daemon=True).start()
 
 
 @app.post("/generate")
@@ -91,6 +128,7 @@ def generate():
             scene = trimesh.load(obj_path, force="mesh")
             glb_bytes = scene.export(file_type="glb")
 
+        _state["last_used"] = time.time()
         return jsonify(ok=True, model=base64.b64encode(glb_bytes).decode("ascii"))
     except torch.cuda.OutOfMemoryError:
         return jsonify(ok=False, error="GPU 메모리가 부족합니다. 잠시 후 다시 시도해 주세요."), 500
