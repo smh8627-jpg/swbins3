@@ -66,10 +66,11 @@ IT에 예외 요청할 때 도메인: `huggingface.co` + `*.cdn-lfs*.huggingface
 선화가 지저분하고 스타일이 일관되지 않습니다. 아래 애니메 전용 체크포인트로 교체하면 웹툰/만화 탭
 품질이 크게 좋아집니다.
 
-- 파일: `counterfeitV30_v30.safetensors` (Counterfeit-V3.0, 애니메 라인아트에 강함)
-- 용량: 약 2~4GB (버전에 따라 다름, pruned 버전 권장)
-- 받는 곳: https://huggingface.co/gsdf/Counterfeit-V3.0 (Files 탭에서 `.safetensors` 다운로드)
-- 대안: https://huggingface.co/s6yx/ReV_Animated (ReV Animated, 좀 더 대중적인 반실사/애니메 혼합 스타일)
+- 파일: `Counterfeit-V3.0_fp16.safetensors` (Counterfeit-V3.0, 애니메 라인아트에 강함)
+- 용량: 약 4.24GB (fp16 권장판. 풀버전 `Counterfeit-V3.0.safetensors`는 9.4GB)
+- 받는 곳: https://huggingface.co/gsdf/Counterfeit-V3.0/resolve/main/Counterfeit-V3.0_fp16.safetensors
+- 대안: `rev_1.2.2/rev_1.2.2-fp16.safetensors` (ReV Animated, 좀 더 대중적인 반실사/애니메 혼합 스타일, 약 4.24GB)
+  받는 곳: https://huggingface.co/s6yx/ReV_Animated/resolve/main/rev_1.2.2/rev_1.2.2-fp16.safetensors
 - 넣을 위치: `C:\swbins3\sd-webui\models\Stable-diffusion\`
 - 적용 방법: 받은 뒤 sd-webui 웹 UI(http://127.0.0.1:7860) 상단 체크포인트 드롭다운에서 선택하거나,
   `curl.exe -X POST -H "Content-Type: application/json" -d "{\"sd_model_checkpoint\":\"counterfeitV30_v30.safetensors\"}" http://127.0.0.1:7860/sdapi/v1/options` 로 API 전환
