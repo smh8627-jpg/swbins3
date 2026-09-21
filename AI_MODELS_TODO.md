@@ -60,6 +60,21 @@ IT에 예외 요청할 때 도메인: `huggingface.co` + `*.cdn-lfs*.huggingface
 - 확인: `curl.exe -I https://openaipublic.azureedge.net` 이 막혀 있으면(현재 상태) `3d-gen` 탭에서 "모델 로드 실패" 에러가 남
 - 상태: ❌ 미다운로드 (방화벽 차단, huggingface.co와 별개 도메인)
 
+## 8. 웹툰/만화·애니메 스타일 체크포인트 (선택, 품질 개선용)
+
+기본 체크포인트(1번, `v1-5-pruned-emaonly`)는 범용 모델이라 "webtoon style" 같은 프롬프트만으로는
+선화가 지저분하고 스타일이 일관되지 않습니다. 아래 애니메 전용 체크포인트로 교체하면 웹툰/만화 탭
+품질이 크게 좋아집니다.
+
+- 파일: `counterfeitV30_v30.safetensors` (Counterfeit-V3.0, 애니메 라인아트에 강함)
+- 용량: 약 2~4GB (버전에 따라 다름, pruned 버전 권장)
+- 받는 곳: https://huggingface.co/gsdf/Counterfeit-V3.0 (Files 탭에서 `.safetensors` 다운로드)
+- 대안: https://huggingface.co/s6yx/ReV_Animated (ReV Animated, 좀 더 대중적인 반실사/애니메 혼합 스타일)
+- 넣을 위치: `C:\swbins3\sd-webui\models\Stable-diffusion\`
+- 적용 방법: 받은 뒤 sd-webui 웹 UI(http://127.0.0.1:7860) 상단 체크포인트 드롭다운에서 선택하거나,
+  `curl.exe -X POST -H "Content-Type: application/json" -d "{\"sd_model_checkpoint\":\"counterfeitV30_v30.safetensors\"}" http://127.0.0.1:7860/sdapi/v1/options` 로 API 전환
+- 상태: ❌ 미다운로드 (방화벽 차단, huggingface.co — 1번과 같은 도메인)
+
 ## 확인 방법
 
 방화벽 예외가 풀리면 아래로 접속이 되는지 먼저 확인:
