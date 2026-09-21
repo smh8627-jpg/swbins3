@@ -135,7 +135,7 @@ huggingface.co에서 받아온다. 이 회사망은 huggingface.co 자체는 도
 - ✅ 코드 반영 완료: `sd-webui/webui-user.bat`에 `HF_HUB_OFFLINE=1`/`TRANSFORMERS_OFFLINE=1` 설정 완료
   — 캐시만 채워지면 다시는 네트워크를 안 탐. (이 파일은 `sd-webui/`가 gitignore 대상이라 git엔 안 올라감,
   다른 PC에서도 위 내용대로 직접 추가해야 함)
-- 상태: ❌ 아직 파일 미확보 (이 PC 기준) — `populate-clip-cache.py`만 실행하면 바로 해결됨
+- 상태: ✅ 파일 5개 다운로드 완료 (이 PC 기준) — `populate-clip-cache.py` 실행해서 캐시에 등록하면 됨
 
 ## 확인 방법
 
