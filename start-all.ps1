@@ -44,6 +44,7 @@ Start-Hidden -Name "music-gen"    -WorkingDirectory (Join-Path $root "music-gen"
 Start-Hidden -Name "voice-gen"    -WorkingDirectory (Join-Path $root "voice-gen")    -FilePath "cmd.exe" -Arguments "/c run.bat < NUL"
 Start-Hidden -Name "3d-gen"       -WorkingDirectory (Join-Path $root "3d-gen")       -FilePath "cmd.exe" -Arguments "/c run.bat < NUL"
 Start-Hidden -Name "ai-tools-hub" -WorkingDirectory (Join-Path $root "ai-tools-hub") -FilePath "powershell.exe" -Arguments "-NoProfile -ExecutionPolicy Bypass -File serve.ps1"
+Start-Hidden -Name "sd-idle-watchdog" -WorkingDirectory $root -FilePath "powershell.exe" -Arguments "-NoProfile -ExecutionPolicy Bypass -File sd-webui-idle-watchdog.ps1"
 
 Write-Host ""
 Write-Host "All started. First run may take 1-2 minutes to load models."

@@ -1,5 +1,5 @@
-# Stops the 5 AI generation servers (sd-webui, music-gen, voice-gen, 3d-gen, ai-tools-hub)
-# started by start-all.ps1.
+# Stops the 6 processes (sd-webui, music-gen, voice-gen, 3d-gen, ai-tools-hub,
+# sd-idle-watchdog) started by start-all.ps1.
 #
 # Primary method: kill any process whose command line / executable path contains one of
 # these service folders, regardless of whether it was tracked by PID or has an open port.
@@ -30,6 +30,9 @@ Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | ForEach-Object {
             $hit = $true
             break
         }
+    }
+    if (-not $hit -and $cl -and $cl.ToLower().Contains('sd-webui-idle-watchdog.ps1')) {
+        $hit = $true
     }
     if ($hit -and -not $killed.Contains([int]$_.ProcessId)) {
         Write-Host ("  killing {0} (pid {1})" -f $_.Name, $_.ProcessId)

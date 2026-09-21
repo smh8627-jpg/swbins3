@@ -20,6 +20,18 @@ function aihubLogError(string $message): void
     error_log('[ai-tools-hub] ' . $message);
 }
 
+/**
+ * sd-webui에 방금 생성 요청을 보냈음을 기록(sd-webui-idle-watchdog.ps1이 이 파일을 보고
+ * 유휴 여부를 판단해 체크포인트를 자동 언로드한다).
+ */
+function aihubMarkSdInUse(): void
+{
+    $logsDir = dirname(__DIR__, 2) . '\\logs';
+    @mkdir($logsDir, 0777, true);
+    @file_put_contents($logsDir . '\\sd-last-used.txt', (string)time());
+    @unlink($logsDir . '\\sd-unloaded.flag');
+}
+
 function aihubContainsKorean(string $text): bool
 {
     return (bool)preg_match('/[\x{AC00}-\x{D7A3}]/u', $text);
@@ -96,6 +108,7 @@ function aihubGenerateImage(array $params): array
         $endpoint = '/sdapi/v1/img2img';
     }
 
+    aihubMarkSdInUse();
     $ch = curl_init(AIHUB_SD_API_BASE . $endpoint);
     curl_setopt_array($ch, [
         CURLOPT_POST => true,
@@ -183,6 +196,7 @@ function aihubGenerateVideo(array $params): array
         $endpoint = '/sdapi/v1/img2img';
     }
 
+    aihubMarkSdInUse();
     $ch = curl_init(AIHUB_SD_API_BASE . $endpoint);
     curl_setopt_array($ch, [
         CURLOPT_POST => true,
