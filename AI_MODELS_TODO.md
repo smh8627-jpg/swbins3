@@ -116,6 +116,27 @@ IT에 예외 요청할 때 도메인: `huggingface.co` + `*.cdn-lfs*.huggingface
   `curl.exe -X POST -H "Content-Type: application/json" -d "{\"sd_model_checkpoint\":\"Counterfeit-V3.0_fp16.safetensors\"}" http://127.0.0.1:7860/sdapi/v1/options` 로 API 전환
 - 상태: ✅ 다운로드 완료 (이 PC 기준, Counterfeit-V3.0·rev_1.2.2 둘 다)
 
+## 9. CLIP 토크나이저 (sd-webui 체크포인트 로딩에 필수, IT 예외 불가 시 우회 방법)
+
+sd-webui는 체크포인트를 처음 로드할 때 `openai/clip-vit-large-patch14` 토크나이저 파일을
+huggingface.co에서 받아온다. 이 회사망은 huggingface.co 자체는 도달은 되지만 프록시의 SSL
+검사(self-signed cert)가 인증서 검증에 걸려서 다운로드가 실패하고, 체크포인트 드롭다운이
+"오류"로 표시된다. IT 예외 요청이 불가능한 경우 아래로 우회한다.
+
+- 받을 파일 5개(회사망이 아닌 다른 네트워크에서, 폰 핫스팟 등):
+  - https://huggingface.co/openai/clip-vit-large-patch14/resolve/main/config.json
+  - https://huggingface.co/openai/clip-vit-large-patch14/resolve/main/vocab.json
+  - https://huggingface.co/openai/clip-vit-large-patch14/resolve/main/merges.txt
+  - https://huggingface.co/openai/clip-vit-large-patch14/resolve/main/tokenizer_config.json
+  - https://huggingface.co/openai/clip-vit-large-patch14/resolve/main/special_tokens_map.json
+- 넣을 위치: `C:\swbins3\clip-vit-large-patch14\` (5개 파일을 이 폴더에 그대로)
+- 등록: `python C:\swbins3\populate-clip-cache.py` 실행 — Hugging Face 캐시(`%USERPROFILE%\.cache\huggingface\hub\`)에
+  정식 캐시 포맷으로 등록해준다. 스크립트 상단 docstring에 자세한 설명 있음.
+- ✅ 코드 반영 완료: `sd-webui/webui-user.bat`에 `HF_HUB_OFFLINE=1`/`TRANSFORMERS_OFFLINE=1` 설정 완료
+  — 캐시만 채워지면 다시는 네트워크를 안 탐. (이 파일은 `sd-webui/`가 gitignore 대상이라 git엔 안 올라감,
+  다른 PC에서도 위 내용대로 직접 추가해야 함)
+- 상태: ❌ 아직 파일 미확보 (이 PC 기준) — `populate-clip-cache.py`만 실행하면 바로 해결됨
+
 ## 확인 방법
 
 방화벽 예외가 풀리면 아래로 접속이 되는지 먼저 확인:
