@@ -73,7 +73,7 @@ def _idle_unload_watcher():
     while True:
         time.sleep(30)
         any_loaded = _state["xm"] is not None or _state["text_model"] is not None or _state["image_model"] is not None
-        if any_loaded and DEVICE == "cuda" and time.time() - _state["last_used"] >= IDLE_UNLOAD_SECONDS:
+        if any_loaded and time.time() - _state["last_used"] >= IDLE_UNLOAD_SECONDS:
             _unload_models()
 
 

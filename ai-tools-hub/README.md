@@ -39,8 +39,9 @@ powershell -ExecutionPolicy Bypass -File serve.ps1 -Port 8700
 
 ### VRAM 자동 관리
 
-`music-gen`·`voice-gen`·`3d-gen`은 최초 요청이 와야 모델을 GPU에 올리고(지연 로딩), 이후 **5분간 요청이 없으면
-자동으로 GPU 메모리에서 내립니다**(Ollama의 `keep_alive`와 같은 개념). VRAM이 6GB급으로 넉넉하지 않아서,
+`music-gen`·`voice-gen`·`3d-gen`은 최초 요청이 와야 모델을 로드하고(지연 로딩), 이후 **5분간 요청이 없으면
+자동으로 메모리에서 내립니다**(Ollama의 `keep_alive`와 같은 개념) — GPU(CUDA) 환경이면 VRAM을, CPU 환경이면
+RAM을 비웁니다. VRAM이 6GB급으로 넉넉하지 않아서,
 이미지→음악→음성→3D를 순서대로 한 번씩만 써도 모델 4개가 동시에 VRAM에 쌓여 부족해지는 걸 막기 위함입니다.
 다음 요청이 오면 다시 자동으로 로드되며(첫 응답이 그만큼 느려짐), 대기 시간은 각 서버 실행 시
 `IDLE_UNLOAD_SECONDS` 환경변수로 조절할 수 있습니다(초 단위, 기본 300).

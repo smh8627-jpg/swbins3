@@ -53,7 +53,7 @@ def _unload_tts():
 def _idle_unload_watcher():
     while True:
         time.sleep(30)
-        if _state["tts"] is not None and DEVICE == "cuda" and \
+        if _state["tts"] is not None and \
                 time.time() - _state["last_used"] >= IDLE_UNLOAD_SECONDS:
             _unload_tts()
 
