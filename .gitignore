@@ -19,3 +19,4 @@ aider/venv/
 aider/__pycache__/
 .aider*
 bash.exe.stackdump
+logs/
