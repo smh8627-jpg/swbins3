@@ -63,6 +63,30 @@ function aihubRenderHome(array $tools, array $tips): string
   .tip b { display: block; font-size: 13.5px; margin-bottom: 4px; }
   .tip span { font-size: 13px; color: var(--muted); line-height: 1.5; }
   .hint { font-size: 12px; color: var(--faint); margin: 16px 0 0; line-height: 1.6; }
+  .gen-box { background: var(--card); border: 1px solid var(--card-border); border-radius: 6px; padding: 18px 20px; }
+  .gen-box label { display: block; font-size: 12.5px; font-weight: 700; color: var(--muted); margin: 12px 0 6px; }
+  .gen-box label:first-child { margin-top: 0; }
+  .gen-box textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--card-border); border-radius: 6px;
+                       font-family: inherit; font-size: 13px; resize: vertical; color: var(--text); }
+  .gen-row { display: flex; gap: 14px; align-items: flex-end; margin-top: 12px; flex-wrap: wrap; }
+  .gen-row label { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; font-weight: 700; color: var(--muted); margin: 0; }
+  .gen-row select, .gen-row input[type=number] { padding: 7px 10px; border: 1px solid var(--card-border); border-radius: 6px;
+                       font-family: inherit; font-size: 13px; }
+  .gen-row input[type=number] { width: 70px; }
+  .gen-row input[type=file] { font-size: 12px; }
+  #gen-submit { padding: 9px 20px; border: none; border-radius: 6px; background: var(--accent); color: #fff;
+                font-weight: 700; font-size: 13px; cursor: pointer; }
+  #gen-submit:disabled { opacity: .6; cursor: not-allowed; }
+  .gen-status { margin-top: 14px; font-size: 13px; }
+  .gen-status.error { color: var(--down); }
+  .gen-status.loading { color: var(--muted); }
+  .gen-result { margin-top: 14px; }
+  .gen-result img, .gen-result video { max-width: 100%; border-radius: 6px; border: 1px solid var(--card-border); display: block; }
+  .gen-result .doc-text { white-space: pre-wrap; font-size: 13.5px; line-height: 1.6; background: var(--bg);
+                           border: 1px solid var(--card-border); border-radius: 6px; padding: 14px 16px; }
+  .gen-result .code-text { white-space: pre-wrap; font-family: "Consolas", "D2Coding", monospace; font-size: 13px;
+                            line-height: 1.6; background: #1e2530; color: #dbe4ee; border-radius: 6px;
+                            padding: 14px 16px; overflow-x: auto; }
   .legend { display: flex; gap: 16px; flex-wrap: wrap; align-items: baseline; font-size: 12px; color: var(--muted);
             margin: 0 0 16px; padding: 10px 14px; background: var(--card); border: 1px solid var(--card-border);
             border-radius: 6px; }
@@ -85,6 +109,12 @@ function aihubRenderHome(array $tools, array $tips): string
       <span class="count">(<?php echo count($cat['tools']); ?>)</span>
     </div>
 <?php } ?>
+    <div class="tab" data-tab="image-gen">🖼️ 이미지 생성</div>
+    <div class="tab" data-tab="video-gen">🎬 동영상 생성</div>
+    <div class="tab" data-tab="music-gen">🎵 음악 생성</div>
+    <div class="tab" data-tab="doc-gen">📝 문서 생성</div>
+    <div class="tab" data-tab="code-gen">💻 코드/앱 생성</div>
+    <div class="tab" data-tab="voice-gen">🔊 음성 생성</div>
     <div class="tab" data-tab="token-saving">💡 토큰 절약법</div>
   </div>
 
@@ -115,6 +145,126 @@ function aihubRenderHome(array $tools, array $tips): string
     </div>
   </div>
 <?php } ?>
+
+  <div class="panel" id="panel-image-gen">
+    <div class="gen-box">
+      <label for="gen-prompt">프롬프트 (영어일수록 결과가 좋습니다)</label>
+      <textarea id="gen-prompt" rows="3" placeholder="예: a cozy cabin in a snowy forest, warm lighting, digital painting"></textarea>
+      <label for="gen-negative">네거티브 프롬프트 (선택, 빼고 싶은 요소)</label>
+      <textarea id="gen-negative" rows="2" placeholder="예: blurry, low quality, watermark"></textarea>
+      <div class="gen-row">
+        <label>크기
+          <select id="gen-size">
+            <option value="512x512" selected>512×512</option>
+            <option value="768x512">768×512 (가로형)</option>
+            <option value="512x768">512×768 (세로형)</option>
+          </select>
+        </label>
+        <label>스텝<input type="number" id="gen-steps" value="20" min="1" max="50"></label>
+        <button id="gen-submit" type="button">이미지 생성</button>
+      </div>
+      <div class="gen-status" id="gen-status" hidden></div>
+      <div class="gen-result" id="gen-result"></div>
+      <p class="hint">
+        로컬 PC에 설치된 Stable Diffusion(sd-webui)으로 생성합니다. 외부로 전송되지 않고 이 PC에서만 동작하며,
+        서버가 꺼져 있거나 모델이 없으면 오류가 표시됩니다.
+      </p>
+    </div>
+  </div>
+
+  <div class="panel" id="panel-video-gen">
+    <div class="gen-box">
+      <label for="vid-prompt">프롬프트 (영어일수록 결과가 좋습니다)</label>
+      <textarea id="vid-prompt" rows="3" placeholder="예: a cat walking on a beach, waves, sunset, smooth motion"></textarea>
+      <label for="vid-negative">네거티브 프롬프트 (선택)</label>
+      <textarea id="vid-negative" rows="2" placeholder="예: blurry, low quality, watermark"></textarea>
+      <div class="gen-row">
+        <label>프레임 수<input type="number" id="vid-length" value="16" min="8" max="32"></label>
+        <label>FPS<input type="number" id="vid-fps" value="8" min="4" max="16"></label>
+        <label>스텝<input type="number" id="vid-steps" value="20" min="1" max="50"></label>
+        <button id="vid-submit" type="button">동영상 생성</button>
+      </div>
+      <div class="gen-status" id="vid-status" hidden></div>
+      <div class="gen-result" id="vid-result"></div>
+      <p class="hint">
+        AnimateDiff(로컬 sd-webui 확장)로 512×512, 짧은 클립(8~32프레임)을 생성합니다. GPU VRAM이 6GB급이라
+        해상도를 높이거나 프레임을 너무 늘리면 메모리 부족 오류가 날 수 있습니다. 생성에 1~수 분 걸릴 수 있습니다.
+      </p>
+    </div>
+  </div>
+
+  <div class="panel" id="panel-music-gen">
+    <div class="gen-box">
+      <label for="mus-prompt">프롬프트 (영어일수록 결과가 좋습니다)</label>
+      <textarea id="mus-prompt" rows="3" placeholder="예: lo-fi hip hop beat with soft piano and rain sounds"></textarea>
+      <div class="gen-row">
+        <label>길이(초)<input type="number" id="mus-duration" value="8" min="3" max="30"></label>
+        <button id="mus-submit" type="button">음악 생성</button>
+      </div>
+      <div class="gen-status" id="mus-status" hidden></div>
+      <div class="gen-result" id="mus-result"></div>
+      <p class="hint">
+        로컬 MusicGen(facebook/musicgen-small)으로 생성합니다. 처음 실행할 때만 모델을 메모리에 올리느라
+        조금 더 걸리고, 그 다음부터는 빨라집니다. 길이가 길수록 생성 시간도 늘어납니다.
+      </p>
+    </div>
+  </div>
+
+  <div class="panel" id="panel-doc-gen">
+    <div class="gen-box">
+      <label for="doc-prompt">프롬프트 (한글로 써도 됩니다)</label>
+      <textarea id="doc-prompt" rows="4" placeholder="예: 신제품 출시 안내 이메일을 정중한 어투로 작성해줘"></textarea>
+      <div class="gen-row">
+        <button id="doc-submit" type="button">문서 생성</button>
+      </div>
+      <div class="gen-status" id="doc-status" hidden></div>
+      <div class="gen-result" id="doc-result"></div>
+      <p class="hint">
+        로컬 Ollama(qwen2.5:7b)로 생성합니다. 외부로 전송되지 않고 이 PC에서만 동작하며,
+        모델이 크기 때문에 첫 응답까지 시간이 걸릴 수 있습니다.
+      </p>
+    </div>
+  </div>
+
+  <div class="panel" id="panel-code-gen">
+    <div class="gen-box">
+      <label for="code-prompt">프롬프트 (한글로 써도 됩니다)</label>
+      <textarea id="code-prompt" rows="4" placeholder="예: 할 일을 추가·삭제할 수 있는 간단한 투두리스트 웹앱을 HTML 한 파일로 만들어줘"></textarea>
+      <div class="gen-row">
+        <button id="code-submit" type="button">코드 생성</button>
+      </div>
+      <div class="gen-status" id="code-status" hidden></div>
+      <div class="gen-result" id="code-result"></div>
+      <p class="hint">
+        로컬 Ollama(qwen2.5-coder:7b)로 코드를 텍스트로 생성합니다. Bolt.new/v0처럼 바로 실행·미리보기까지
+        해주는 건 아니고, 생성된 코드를 직접 파일로 저장해서 실행해야 합니다.
+      </p>
+    </div>
+  </div>
+
+  <div class="panel" id="panel-voice-gen">
+    <div class="gen-box">
+      <label for="voice-text">텍스트 (읽어줄 문장)</label>
+      <textarea id="voice-text" rows="3" placeholder="예: 안녕하세요, 오늘 회의는 3시에 시작합니다."></textarea>
+      <div class="gen-row">
+        <label>언어
+          <select id="voice-lang">
+            <option value="ko" selected>한국어</option>
+            <option value="en">영어</option>
+            <option value="ja">일본어</option>
+          </select>
+        </label>
+        <label>목소리 샘플(wav/mp3, 5~10초)<input type="file" id="voice-ref" accept="audio/*"></label>
+        <button id="voice-submit" type="button">음성 생성</button>
+      </div>
+      <div class="gen-status" id="voice-status" hidden></div>
+      <div class="gen-result" id="voice-result"></div>
+      <p class="hint">
+        로컬 Coqui XTTS-v2로 생성합니다. 처음 한 번은 목소리 샘플을 업로드해야 하고, 그 다음부터는
+        같은 목소리로 계속 재사용됩니다(서버에 저장됨). 다른 목소리로 바꾸려면 새 샘플을 다시 올리면 됩니다.
+      </p>
+    </div>
+  </div>
 
   <div class="panel" id="panel-token-saving">
     <div class="tips">
@@ -168,6 +318,318 @@ document.getElementById('search').addEventListener('input', function (e) {
       empty.hidden = true;
     }
   });
+});
+
+document.getElementById('gen-submit').addEventListener('click', function () {
+  var btn = this;
+  var statusEl = document.getElementById('gen-status');
+  var resultEl = document.getElementById('gen-result');
+  var prompt = document.getElementById('gen-prompt').value.trim();
+  var negative = document.getElementById('gen-negative').value.trim();
+  var size = document.getElementById('gen-size').value.split('x');
+  var steps = parseInt(document.getElementById('gen-steps').value, 10) || 20;
+
+  if (!prompt) {
+    statusEl.hidden = false;
+    statusEl.className = 'gen-status error';
+    statusEl.textContent = '프롬프트를 입력해 주세요.';
+    return;
+  }
+
+  btn.disabled = true;
+  statusEl.hidden = false;
+  statusEl.className = 'gen-status loading';
+  statusEl.textContent = '생성 중입니다… (10~30초 정도 걸릴 수 있습니다)';
+  resultEl.innerHTML = '';
+
+  fetch('/generate/image', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      prompt: prompt,
+      negative_prompt: negative,
+      width: parseInt(size[0], 10),
+      height: parseInt(size[1], 10),
+      steps: steps
+    })
+  })
+    .then(function (res) { return res.json(); })
+    .then(function (data) {
+      btn.disabled = false;
+      if (data.ok && data.images && data.images.length) {
+        statusEl.hidden = true;
+        var img = document.createElement('img');
+        img.src = 'data:image/png;base64,' + data.images[0];
+        resultEl.appendChild(img);
+      } else {
+        statusEl.className = 'gen-status error';
+        statusEl.textContent = data.error || '알 수 없는 오류가 발생했습니다.';
+      }
+    })
+    .catch(function (err) {
+      btn.disabled = false;
+      statusEl.className = 'gen-status error';
+      statusEl.textContent = '요청 중 오류가 발생했습니다: ' + err;
+    });
+});
+
+document.getElementById('vid-submit').addEventListener('click', function () {
+  var btn = this;
+  var statusEl = document.getElementById('vid-status');
+  var resultEl = document.getElementById('vid-result');
+  var prompt = document.getElementById('vid-prompt').value.trim();
+  var negative = document.getElementById('vid-negative').value.trim();
+  var videoLength = parseInt(document.getElementById('vid-length').value, 10) || 16;
+  var fps = parseInt(document.getElementById('vid-fps').value, 10) || 8;
+  var steps = parseInt(document.getElementById('vid-steps').value, 10) || 20;
+
+  if (!prompt) {
+    statusEl.hidden = false;
+    statusEl.className = 'gen-status error';
+    statusEl.textContent = '프롬프트를 입력해 주세요.';
+    return;
+  }
+
+  btn.disabled = true;
+  statusEl.hidden = false;
+  statusEl.className = 'gen-status loading';
+  statusEl.textContent = '생성 중입니다… (프레임 수에 따라 1~수 분 걸릴 수 있습니다)';
+  resultEl.innerHTML = '';
+
+  fetch('/generate/video', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      prompt: prompt,
+      negative_prompt: negative,
+      video_length: videoLength,
+      fps: fps,
+      steps: steps
+    })
+  })
+    .then(function (res) { return res.json(); })
+    .then(function (data) {
+      btn.disabled = false;
+      if (data.ok && data.video) {
+        statusEl.hidden = true;
+        var video = document.createElement('video');
+        video.src = 'data:video/mp4;base64,' + data.video;
+        video.controls = true;
+        video.autoplay = true;
+        video.loop = true;
+        resultEl.appendChild(video);
+      } else {
+        statusEl.className = 'gen-status error';
+        statusEl.textContent = data.error || '알 수 없는 오류가 발생했습니다.';
+      }
+    })
+    .catch(function (err) {
+      btn.disabled = false;
+      statusEl.className = 'gen-status error';
+      statusEl.textContent = '요청 중 오류가 발생했습니다: ' + err;
+    });
+});
+
+document.getElementById('mus-submit').addEventListener('click', function () {
+  var btn = this;
+  var statusEl = document.getElementById('mus-status');
+  var resultEl = document.getElementById('mus-result');
+  var prompt = document.getElementById('mus-prompt').value.trim();
+  var duration = parseInt(document.getElementById('mus-duration').value, 10) || 8;
+
+  if (!prompt) {
+    statusEl.hidden = false;
+    statusEl.className = 'gen-status error';
+    statusEl.textContent = '프롬프트를 입력해 주세요.';
+    return;
+  }
+
+  btn.disabled = true;
+  statusEl.hidden = false;
+  statusEl.className = 'gen-status loading';
+  statusEl.textContent = '생성 중입니다… (처음 실행 시 모델 로딩 때문에 더 걸릴 수 있습니다)';
+  resultEl.innerHTML = '';
+
+  fetch('/generate/music', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt: prompt, duration: duration })
+  })
+    .then(function (res) { return res.json(); })
+    .then(function (data) {
+      btn.disabled = false;
+      if (data.ok && data.audio) {
+        statusEl.hidden = true;
+        var audio = document.createElement('audio');
+        audio.src = 'data:audio/wav;base64,' + data.audio;
+        audio.controls = true;
+        audio.autoplay = true;
+        resultEl.appendChild(audio);
+      } else {
+        statusEl.className = 'gen-status error';
+        statusEl.textContent = data.error || '알 수 없는 오류가 발생했습니다.';
+      }
+    })
+    .catch(function (err) {
+      btn.disabled = false;
+      statusEl.className = 'gen-status error';
+      statusEl.textContent = '요청 중 오류가 발생했습니다: ' + err;
+    });
+});
+
+document.getElementById('doc-submit').addEventListener('click', function () {
+  var btn = this;
+  var statusEl = document.getElementById('doc-status');
+  var resultEl = document.getElementById('doc-result');
+  var prompt = document.getElementById('doc-prompt').value.trim();
+
+  if (!prompt) {
+    statusEl.hidden = false;
+    statusEl.className = 'gen-status error';
+    statusEl.textContent = '프롬프트를 입력해 주세요.';
+    return;
+  }
+
+  btn.disabled = true;
+  statusEl.hidden = false;
+  statusEl.className = 'gen-status loading';
+  statusEl.textContent = '생성 중입니다…';
+  resultEl.innerHTML = '';
+
+  fetch('/generate/document', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt: prompt })
+  })
+    .then(function (res) { return res.json(); })
+    .then(function (data) {
+      btn.disabled = false;
+      if (data.ok && data.text) {
+        statusEl.hidden = true;
+        var div = document.createElement('div');
+        div.className = 'doc-text';
+        div.textContent = data.text;
+        resultEl.appendChild(div);
+      } else {
+        statusEl.className = 'gen-status error';
+        statusEl.textContent = data.error || '알 수 없는 오류가 발생했습니다.';
+      }
+    })
+    .catch(function (err) {
+      btn.disabled = false;
+      statusEl.className = 'gen-status error';
+      statusEl.textContent = '요청 중 오류가 발생했습니다: ' + err;
+    });
+});
+
+document.getElementById('code-submit').addEventListener('click', function () {
+  var btn = this;
+  var statusEl = document.getElementById('code-status');
+  var resultEl = document.getElementById('code-result');
+  var prompt = document.getElementById('code-prompt').value.trim();
+
+  if (!prompt) {
+    statusEl.hidden = false;
+    statusEl.className = 'gen-status error';
+    statusEl.textContent = '프롬프트를 입력해 주세요.';
+    return;
+  }
+
+  btn.disabled = true;
+  statusEl.hidden = false;
+  statusEl.className = 'gen-status loading';
+  statusEl.textContent = '생성 중입니다…';
+  resultEl.innerHTML = '';
+
+  fetch('/generate/code', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt: prompt })
+  })
+    .then(function (res) { return res.json(); })
+    .then(function (data) {
+      btn.disabled = false;
+      if (data.ok && data.text) {
+        statusEl.hidden = true;
+        var pre = document.createElement('pre');
+        pre.className = 'code-text';
+        pre.textContent = data.text;
+        resultEl.appendChild(pre);
+      } else {
+        statusEl.className = 'gen-status error';
+        statusEl.textContent = data.error || '알 수 없는 오류가 발생했습니다.';
+      }
+    })
+    .catch(function (err) {
+      btn.disabled = false;
+      statusEl.className = 'gen-status error';
+      statusEl.textContent = '요청 중 오류가 발생했습니다: ' + err;
+    });
+});
+
+document.getElementById('voice-submit').addEventListener('click', function () {
+  var btn = this;
+  var statusEl = document.getElementById('voice-status');
+  var resultEl = document.getElementById('voice-result');
+  var text = document.getElementById('voice-text').value.trim();
+  var language = document.getElementById('voice-lang').value;
+  var fileInput = document.getElementById('voice-ref');
+  var file = fileInput.files[0];
+
+  if (!text) {
+    statusEl.hidden = false;
+    statusEl.className = 'gen-status error';
+    statusEl.textContent = '텍스트를 입력해 주세요.';
+    return;
+  }
+
+  function submit(speakerWavB64) {
+    btn.disabled = true;
+    statusEl.hidden = false;
+    statusEl.className = 'gen-status loading';
+    statusEl.textContent = '생성 중입니다… (처음 실행 시 모델 로딩 때문에 더 걸릴 수 있습니다)';
+    resultEl.innerHTML = '';
+
+    var body = { text: text, language: language };
+    if (speakerWavB64) { body.speaker_wav = speakerWavB64; }
+
+    fetch('/generate/voice', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    })
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        btn.disabled = false;
+        if (data.ok && data.audio) {
+          statusEl.hidden = true;
+          var audio = document.createElement('audio');
+          audio.src = 'data:audio/wav;base64,' + data.audio;
+          audio.controls = true;
+          audio.autoplay = true;
+          resultEl.appendChild(audio);
+        } else {
+          statusEl.className = 'gen-status error';
+          statusEl.textContent = data.error || '알 수 없는 오류가 발생했습니다.';
+        }
+      })
+      .catch(function (err) {
+        btn.disabled = false;
+        statusEl.className = 'gen-status error';
+        statusEl.textContent = '요청 중 오류가 발생했습니다: ' + err;
+      });
+  }
+
+  if (file) {
+    var reader = new FileReader();
+    reader.onload = function () {
+      var base64 = reader.result.split(',')[1];
+      submit(base64);
+    };
+    reader.readAsDataURL(file);
+  } else {
+    submit(null);
+  }
 });
 </script>
 </body>
