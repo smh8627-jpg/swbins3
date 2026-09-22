@@ -46,10 +46,11 @@ VRAM에 쌓여 부족해지는 걸 막기 위함입니다.
 - `music-gen`·`voice-gen`·`3d-gen`: 최초 요청이 와야 모델을 로드하고(지연 로딩), 이후 **5분간 요청이 없으면
   자동으로 메모리에서 내립니다**(Ollama의 `keep_alive`와 같은 개념) — GPU(CUDA) 환경이면 VRAM을, CPU 환경이면
   RAM을 비웁니다. 대기 시간은 각 서버 실행 시 `IDLE_UNLOAD_SECONDS` 환경변수로 조절할 수 있습니다(초 단위, 기본 300).
-- `sd-webui`: `webui-user.bat`에 `--skip-load-model-at-start`를 넣어서 `start-all.bat` 실행 직후엔 체크포인트를
-  로드하지 않습니다(다른 3개와 동일하게 첫 생성 요청 때 로드). 이후 `sd-webui-idle-watchdog.ps1`(start-all.ps1이
-  함께 띄움)이 30초마다 마지막 생성 시각(`logs\sd-last-used.txt`)을 확인해서 5분 이상 유휴면
-  `/sdapi/v1/unload-checkpoint` API로 체크포인트를 내립니다. 다음 생성 요청이 오면 sd-webui가 알아서 다시 로드합니다.
+- `sd-webui`: `start-all.bat` 실행 직후 체크포인트를 바로 로드합니다(`--skip-load-model-at-start`는 설치된
+  AnimateDiff 확장과 충돌해 죽는 문제가 있어 되돌림 — `AI_MODELS_TODO.md` 10번 참고). 대신
+  `sd-webui-idle-watchdog.ps1`(start-all.ps1이 함께 띄움)이 30초마다 마지막 생성 시각(`logs\sd-last-used.txt`)을
+  확인해서 5분 이상 유휴면 `/sdapi/v1/unload-checkpoint` API로 체크포인트를 내립니다. 다음 생성 요청이 오면
+  sd-webui가 알아서 다시 로드합니다.
 
 네 백엔드 모두 다시 로드되는 첫 응답은 그만큼 느려집니다(체크포인트 기준 보통 수십 초). 항상 즉시 응답이
 필요하면(여러 명이 동시에 자주 쓰는 등) VRAM이 더 큰 GPU가 근본적인 해결책입니다 — 소프트웨어로는 "필요할 때만

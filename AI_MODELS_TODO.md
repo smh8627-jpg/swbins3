@@ -137,6 +137,31 @@ huggingface.co에서 받아온다. 이 회사망은 huggingface.co 자체는 도
   다른 PC에서도 위 내용대로 직접 추가해야 함)
 - 상태: ✅ 파일 5개 다운로드 완료 (이 PC 기준) — `populate-clip-cache.py` 실행해서 캐시에 등록하면 됨
 
+## 10. sd-webui 로컬 실행 설정 (이 PC 하드웨어 대응, 필수 — gitignore 대상이라 git엔 안 올라감)
+
+`sd-webui/`는 통째로 gitignore 대상이라 아래 3가지는 다른 PC(또는 재설치 시)에서 직접 다시 해줘야 합니다.
+2026-09-22에 6GB급 VRAM(GTX/RTX 6GB) + 13세대 Intel CPU 조합에서 실제로 이미지 생성을 검증하며 확인한 내용입니다.
+
+1. **`sd-webui/webui-user.bat`의 `COMMANDLINE_ARGS`에 `--lowvram` 사용 (`--medvram` 아님)**
+   - `--no-half`(fp32, 13세대 Intel CPU의 torch_cpu.dll access violation 회피용)와 `--medvram`을 같이 쓰면
+     체크포인트 하나만 떠 있어도 ~3.5GB를 기본으로 깔고 시작해서, 512×512 기본 생성 중간에
+     `RuntimeError: bad allocation`(사실상 VRAM 부족)으로 실패했다.
+   - `--lowvram`으로 바꾸면 레이어를 더 공격적으로 CPU↔GPU로 옮겨서(속도는 느려짐, 512×512/20스텝
+     기준 약 40초) 6GB에서 안정적으로 끝까지 생성된다.
+2. **활성 체크포인트를 `v1-5-pruned-emaonly.safetensors`로 명시 고정**
+   - `sd-webui/config.json`에 `"sd_model_checkpoint": "v1-5-pruned-emaonly.safetensors"` 추가.
+   - 설정이 없으면 sd-webui가 `models/Stable-diffusion/` 안에서 알파벳순으로 첫 파일(`Counterfeit-V3.0_fp16.safetensors`,
+     파일명에 fp16 포함)을 집어서 로드하려다 위의 그 access violation 버그를 그대로 맞고 죽는다.
+     `v1-5-pruned-emaonly`는 fp16이 아니라서 안전하다.
+3. **`sd-webui/extensions/sd-webui-animatediff/scripts/animatediff_ui.py`의 `get_sd_rm_tag()`에 None 가드 추가**
+   - sd-webui는 체크포인트를 백그라운드 스레드에서 로드하면서 동시에 API를 초기화하는데, 이 확장이
+     그 시점에 `shared.sd_model`이 이미 로드돼 있다고 가정하고 `.is_sdxl`에 접근해서, 로딩이 늦게
+     끝나면(다른 GPU 프로세스가 같이 떠 있을 때 특히 잘 발생) `AttributeError`로 sd-webui 전체가 죽는다.
+   - 함수 맨 앞에 `if shared.sd_model is None: return []` 한 줄 추가하면 해결된다(모델 미로딩 시 태그
+     필터링만 건너뛰고 넘어감, 원래 있던 "인식 못 하는 모델 타입"의 fallback과 동일한 동작).
+   - `--skip-load-model-at-start`(체크포인트를 켜자마자가 아니라 첫 요청 때 로드)는 이 버그를 100%
+     재현시켜서 시도했다가 되돌렸다. 위 None 가드를 넣은 지금은 다시 시도해볼 수도 있지만, 아직 검증 안 함.
+
 ## 확인 방법
 
 방화벽 예외가 풀리면 아래로 접속이 되는지 먼저 확인:
